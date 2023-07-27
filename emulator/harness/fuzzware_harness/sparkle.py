@@ -6,7 +6,6 @@ from collections import defaultdict
 import archinfo
 import ipdb
 import unicorn
-
 from . import util
 
 logger = logging.getLogger("emulator")
@@ -18,12 +17,13 @@ class SparklyRegs():
 
     def __init__(self, uc):
         self._uc = uc
-
+    # TODO: here is also arch-specific, requires a thorough consideration
     def __getattribute__(self, regname):
         myuc = object.__getattribute__(self, '_uc')
         for x in dir(unicorn.arm_const):
             if x.endswith('REG_' + regname.upper()):
-                return myuc.reg_read(getattr(unicorn.arm_const, x))
+                # return myuc.reg_read(getattr(unicorn.arm_const, x))
+                return myuc.reg_read(getattr(myuc.global_const, x))
         return object.__getattribute__(self, regname)
 
     def get_all(self):
@@ -47,7 +47,8 @@ class SparklyRegs():
         myuc = object.__getattribute__(self, '_uc')
         for x in dir(unicorn.arm_const):
             if x.endswith('_' + regname.upper()):
-                return myuc.reg_write(getattr(unicorn.arm_const, x), val)
+                # return myuc.reg_write(getattr(unicorn.arm_const, x), val)
+                return myuc.reg_write(getattr(myuc.global_const, x), val)
         return object.__getattribute__(self, regname)
 
     def __repr__(self):
@@ -104,6 +105,7 @@ class SparklyMem():
             return res[0]
         return res
 
+# TODO: replace UC_ARM_REG_SP 
 class SparklyStack():
 
     _uc = None
@@ -113,13 +115,16 @@ class SparklyStack():
 
     def __getitem__(self, key):
         myuc = object.__getattribute__(self, '_uc')
-        sp = myuc.reg_read(unicorn.arm_const.UC_ARM_REG_SP)
+        # TODO: replace arm-specific constants
+        # sp = myuc.reg_read(unicorn.arm_const.UC_ARM_REG_SP)
+        sp = myuc.reg_read(myuc.global_reg_sp)
         if isinstance(key, slice):
             return myuc.mem_read(sp + key.start, (key.stop-key.start))
         return myuc.mem_read(sp + key, 4)
 
     def __setitem__(self, key, value):
         myuc = object.__getattribute__(self, '_uc')
+        sp = myuc.reg_read(myuc.global_reg_sp)
         if isinstance(value, bytes):
             myuc.mem_write(sp + key, value)
         else:
@@ -214,8 +219,18 @@ def add_sparkles(uc, args):
                 bp_addr = int(bp, 0)
             except ValueError:
                 bp_addr = util.parse_address_value(uc.symbols, bp)
-            breakpoints.append(bp_addr & ~1)
+            # TODO: the breakpoint applies a flip for the last bit in a given address
+            # need to adjust it for other archs
+            if uc.arch == "mips32":
+                breakpoints.append(bp_addr)
+            elif uc.arch == "cortex-m":
+                breakpoints.append(bp_addr & ~1)
         uc.hook_add(unicorn.UC_HOOK_BLOCK_UNCONDITIONAL, breakpoint_handler)
-    uc.arch = archinfo.ArchARMCortexM()
+
+    # TODO: need to assign a proper arch according to arg.arch
+    if uc.arch == "mips32":
+        uc.arch = archinfo.ArchMIPS32()
+    elif uc.arch == "cortex-m":
+        uc.arch = archinfo.ArchARMCortexM()
     # uc.arch = None
     return uc

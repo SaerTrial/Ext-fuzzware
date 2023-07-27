@@ -5,9 +5,8 @@ import sys
 import logging
 
 #TODO: add MIPS-specific unicorn stuff
-from unicorn import (UC_ARCH_ARM, UC_MODE_MCLASS, UC_MODE_THUMB, Uc)
-from unicorn.arm_const import UC_ARM_REG_PC, UC_ARM_REG_SP
-from unicorn.mips_const import UC_MIPS_REG_PC, UC_MIPS_REG_SP
+from unicorn import (UC_ARCH_ARM, UC_ARCH_MIPS, UC_MODE_MCLASS, UC_MODE_THUMB, UC_MODE_MIPS32, UC_MODE_LITTLE_ENDIAN, UC_MODE_BIG_ENDIAN, Uc)
+import unicorn 
 
 from . import globs, interrupt_triggers, native, timer, user_hooks
 from .gdbserver import GDBServer
@@ -60,16 +59,22 @@ def configure_unicorn(args):
 
     #TODO: add MIPS-specific stuff, and determine endianness
     # Create the unicorn
-    # if config.arch == "MIPS32":
-    #   uc = Uc(UC_ARCH_MIPS, UC_MODE_MIPS32 | UC_MODE_LITTLE_ENDIAN)
-    #   UC_REG_PC = UC_MIPS_REG_PC
-    #   UC_REG_SP = UC_MIPS_REG_SP
-    # elif config.arch == "CORTEX-M": # the default is little-endian
-    #   uc = Uc(UC_ARCH_ARM, UC_MODE_THUMB | UC_MODE_MCLASS)
-    #   UC_REG_PC = UC_ARM_REG_PC
-    #   UC_REG_SP = UC_ARM_REG_SP
-
-    uc = Uc(UC_ARCH_ARM, UC_MODE_THUMB | UC_MODE_MCLASS)
+    if config.arch == "mips32":
+        if config.endianness == "little-endian":
+            uc = Uc(UC_ARCH_MIPS, UC_MODE_MIPS32 | UC_MODE_LITTLE_ENDIAN)
+        else:
+            uc = Uc(UC_ARCH_MIPS, UC_MODE_MIPS32 | UC_MODE_BIG_ENDIAN)  
+        uc.global_reg_pc = unicorn.mips_const.UC_MIPS_REG_PC
+        uc.global_reg_sp = unicorn.mips_const.UC_MIPS_REG_SP
+        uc.global_const = unicorn.mips_const
+        uc.arch = "mips32"
+    elif config.arch == "cortex-m": # the default is little-endian
+        uc = Uc(UC_ARCH_ARM, UC_MODE_THUMB | UC_MODE_MCLASS)
+        uc.global_reg_pc = unicorn.arm_const.UC_ARM_REG_PC
+        uc.global_reg_sp = unicorn.arm_const.UC_ARM_REG_SP
+        uc.global_const = unicorn.arm_const
+        uc.arch = "cortex-m"
+    # uc = Uc(UC_ARCH_ARM, UC_MODE_THUMB | UC_MODE_MCLASS)
 
     uc.symbols, uc.syms_by_addr = parse_symbols(config)
 
@@ -181,6 +186,7 @@ def configure_unicorn(args):
         if entry_image_base is None:
             logger.error("Binary entry point missing! Make sure 'entry_point is in your configuration")
             sys.exit(1)
+        
         # Those cope snippets are Cortex-specific, since MIPS doesn't have this data organization.
         config['initial_sp'] = bytes2int(uc.mem_read(entry_image_base, 4))
         config['entry_point'] = bytes2int(uc.mem_read(entry_image_base + 4, 4))
@@ -189,15 +195,15 @@ def configure_unicorn(args):
 
     # TODO: add MIPS-specific stuff
     # Set the program entry point and stack pointer
-    uc.reg_write(UC_ARM_REG_PC, config['entry_point'])
-    # uc.reg_write(UC_REG_PC, config['entry_point'])
+    # uc.reg_write(UC_ARM_REG_PC, config['entry_point'])
+    uc.reg_write(uc.global_reg_pc, config['entry_point'])
 
     # The stack pointer is aligned during CPU reset
-    uc.reg_write(UC_ARM_REG_SP, config['initial_sp'] & 0xfffffffc)
-    # if config.arch == "MIPS32":
-    #   uc.reg_write(UC_REG_SP, config['initial_sp'])
-    # elif config.arch == "CORTEX-M":
-    #   uc.reg_write(UC_REG_SP, config['initial_sp'] & 0xfffffffc)
+    # uc.reg_write(UC_ARM_REG_SP, config['initial_sp'] & 0xfffffffc)
+    if config.arch == "mips32":
+      uc.reg_write(uc.global_reg_sp, config['initial_sp'])
+    elif config.arch == "cortex-m":
+      uc.reg_write(uc.global_reg_sp, config['initial_sp'] & 0xfffffffc)
 
     mmio_ranges = [(start, start + size) for rname, (start, size, prot) in regions.items() if rname.lower().startswith('mmio')]
     if not mmio_ranges:
@@ -256,7 +262,7 @@ def configure_unicorn(args):
     # MMIO modeling and listener setup
     parse_mmio_model_config(uc, config)
 
-    # TODO: remove ARM-specific
+    # TODO: remove ARM-specific, but not a priority yet since haven't seen the usage of this part
     # Step 3: Set the handlers
     if 'handlers' in config and config['handlers']:
         for fname, handler_desc in config['handlers'].items():
