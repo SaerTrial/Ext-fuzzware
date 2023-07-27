@@ -1,0 +1,24 @@
+[07-13 13:34:11 DEBUG] __init__.py - 
+
+Starting fuzzware at 2023-07-13 13:34:10.769708
+
+
+[07-13 13:34:11 INFO] __init__.py - Executing pipeline at 2023-07-13 13:34:11.240895
+[07-13 13:34:11 INFO] __init__.py - Got projdir: /home/user/fuzzware/targets/pw-recovery/ARCH_PRO
+[07-13 13:34:11 INFO] __init__.py - Could not find 'base_inputs' directory in target base dir, defaulting to generic initial inputs
+[07-13 13:34:11 INFO] __init__.py - Performing initial tests
+[07-13 13:34:11 INFO] __init__.py - Initial tests successful
+[07-13 13:34:11 WARNING] pipeline.py - Found an existing project directory under /home/user/fuzzware/targets/pw-recovery/ARCH_PRO/fuzzware-project. Moving it now
+[07-13 13:34:11 WARNING] pipeline.py - Removing old backed up project: /home/user/fuzzware/targets/pw-recovery/ARCH_PRO/fuzzware-project_old
+[07-13 13:34:11 INFO] pipeline.py - logging pipeline output to: /home/user/fuzzware/targets/pw-recovery/ARCH_PRO/fuzzware-project/logs/pipeline.log
+[07-13 13:34:11 INFO] pipeline.py - Dry-running emulator to check functionality..
+
+[07-13 13:34:11 INFO] run_target.py - Running target with
+config path: /home/user/fuzzware/targets/pw-recovery/ARCH_PRO/config.yml
+input path: /home/user/fuzzware/targets/pw-recovery/ARCH_PRO/fuzzware-project/.empty_input
+Extra args: ['-v']
+
+[07-13 13:34:11 DEBUG] run_target.py - Full command: python3 -m fuzzware_harness.harness -c /home/user/fuzzware/targets/pw-recovery/ARCH_PRO/config.yml -v /home/user/fuzzware/targets/pw-recovery/ARCH_PRO/fuzzware-project/.empty_input
+[07-13 13:34:13 INFO] pipeline.py - Emulator dry-run successful!
+[07-13 13:34:13 INFO] pipeline.py - Adding pipeline level observers
+[07-13 13:34:13 DEBUG] pipeline.py - Observing mmio states dir: /home/user/fuzzware/targets/pw-recovery/ARCH_PRO/fuzzware-project/mmio_states
