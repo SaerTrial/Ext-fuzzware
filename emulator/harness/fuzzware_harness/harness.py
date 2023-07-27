@@ -4,7 +4,7 @@ import os
 import sys
 import logging
 
-#TODO: add MIPS-specific stuff
+#TODO: add MIPS-specific unicorn stuff
 from unicorn import (UC_ARCH_ARM, UC_MODE_MCLASS, UC_MODE_THUMB, Uc)
 from unicorn.arm_const import UC_ARM_REG_PC, UC_ARM_REG_SP
 from unicorn.mips_const import UC_MIPS_REG_PC, UC_MIPS_REG_SP
