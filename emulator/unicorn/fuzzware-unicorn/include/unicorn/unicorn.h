@@ -812,6 +812,19 @@ uc_err uc_fuzzer_init_cov(uc_engine *uc, void *bitmap_region, uint32_t bitmap_si
 UNICORN_EXPORT
 uc_err uc_fuzzer_reset_cov(uc_engine *uc, int do_clear);
 
+
+/*
+  Access the information about architecture 
+  @uc: handle returned by uc_open()
+
+  @return the value representing one certain architecture on success, or UC_ERR_ARCH on failure (refer to uc_err enum
+   for detailed error).
+*/
+
+UNICORN_EXPORT
+int uc_get_arch(uc_engine *uc);
+
+
 #ifdef __cplusplus
 }
 #endif

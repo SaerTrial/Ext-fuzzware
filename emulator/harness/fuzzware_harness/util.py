@@ -40,10 +40,18 @@ def parse_symbols(config):
     name_to_addr = {}
     addr_to_name = {}
     # Create the symbol table
+    arch_mark = None
+    
+    # TODO: address aligning should be arch-specific
+    if config.arch == "mips32":
+        arch_mark = ~0
+    elif config.arch == "cortex-m":
+        arch_mark = 0xFFFFFFFE
+
     if 'symbols' in config:
         try:
-            addr_to_name = {k&0xFFFFFFFE: v for k, v in config['symbols'].items()}
-            name_to_addr = {v: k&0xFFFFFFFE for k, v in config['symbols'].items()}
+            addr_to_name = {k&arch_mark: v for k, v in config['symbols'].items()}
+            name_to_addr = {v: k&arch_mark for k, v in config['symbols'].items()}
         except TypeError as e:
             logger.error("Type error while parsing symbols. The symbols configuration was likely mis-formatted. The format is 0xdeadbeef: my_symbol_name. Raising original error.")
             raise e

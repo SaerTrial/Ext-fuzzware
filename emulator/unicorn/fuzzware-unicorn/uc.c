@@ -1632,3 +1632,14 @@ uc_err uc_fuzzer_reset_cov(uc_engine *uc, int do_clear)
     uc->fuzzer_reset_cov(uc, do_clear);
     return UC_ERR_OK;
 }
+
+
+UNICORN_EXPORT
+int uc_get_arch(uc_engine *uc)
+{
+    if (uc_arch < 1 || uc_arch > 8)
+    {
+        return UC_ERR_ARCH;
+    }
+    return uc->arch;
+}

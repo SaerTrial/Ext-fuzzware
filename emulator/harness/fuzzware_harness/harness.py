@@ -183,6 +183,11 @@ def configure_unicorn(args):
     # entry_point: xxx
     if not ('entry_point' in config and 'initial_sp' in config):
         # If we don't have explicit configs, try recovering from IVT
+
+        if config.arch == "mips32":
+            logger.error("For mips32 binaries, entry_point and initial stack pointer need to be set up")
+            sys.exit(1)
+
         if entry_image_base is None:
             logger.error("Binary entry point missing! Make sure 'entry_point is in your configuration")
             sys.exit(1)
@@ -422,10 +427,12 @@ def main():
     sys.stdout.flush()
 
     # Collect garbage once in order to avoid doing so while fuzzing
+    # TODO: interesting one, but i don't understand yet
+    # tutorial: https://www.geeksforgeeks.org/garbage-collection-python/
     gc.collect()
     # gc.set_threshold(0, 0, 0)
 
-    # TODO: refactor arch-specific code snippets
+    # TODO: native emulator requires a lot of changes on arch-specifc code snippets
     # We do everything in native code from here to avoid any python overhead after configuration is done
     native.emulate(uc, args.input_file, args.prefix_input_path)
 
