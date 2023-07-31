@@ -68,12 +68,14 @@ def configure_unicorn(args):
         uc.global_reg_sp = unicorn.mips_const.UC_MIPS_REG_SP
         uc.global_const = unicorn.mips_const
         uc.arch = "mips32"
+        uc.bit_cleaner = 0x0
     elif config.arch == "cortex-m": # the default is little-endian
         uc = Uc(UC_ARCH_ARM, UC_MODE_THUMB | UC_MODE_MCLASS)
         uc.global_reg_pc = unicorn.arm_const.UC_ARM_REG_PC
         uc.global_reg_sp = unicorn.arm_const.UC_ARM_REG_SP
         uc.global_const = unicorn.arm_const
         uc.arch = "cortex-m"
+        uc.bit_cleaner = 0xFFFFFFFE
     # uc = Uc(UC_ARCH_ARM, UC_MODE_THUMB | UC_MODE_MCLASS)
 
     uc.symbols, uc.syms_by_addr = parse_symbols(config)
@@ -279,7 +281,7 @@ def configure_unicorn(args):
                 addr_val = handler_desc['addr']
                 # This handler is always at a fixed address
                 if isinstance(addr_val, int):
-                    addr_val &= 0xFFFFFFFE # Clear thumb bit
+                    addr_val &= uc.bit_cleaner # Clear thumb bit in case of cortex-M
                     uc.syms_by_addr[addr_val] = fname
             else:
                 addr_val = fname
