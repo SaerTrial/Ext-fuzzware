@@ -1036,7 +1036,16 @@ void test_timeout_cb(uc_engine *uc, uint32_t id, void *user_data) {
 void instr_limit_timeout_cb(uc_engine *uc, uint32_t id, void *user_data) {
     if(do_print_exit_info) {
         uint32_t pc;
-        uc_reg_read(uc, UC_ARM_REG_PC, &pc);
+
+        int arch = uc_get_arch(uc);
+        if (arch == UC_ARCH_ARM) {
+            reg_pc = UC_ARM_REG_PC;
+        }else if (arch == UC_ARCH_MIPS)
+        {
+            reg_pc = UC_MIPS_REG_PC;
+        }
+
+        uc_reg_read(uc, reg_pc, &pc);
         printf("Ran into instruction limit of %lu at 0x%08x - exiting\n", get_timer_reload_val(instr_limit_timer_id), pc);
     }
     do_exit(uc, UC_ERR_OK);
