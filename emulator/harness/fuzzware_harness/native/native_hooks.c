@@ -1036,7 +1036,7 @@ void test_timeout_cb(uc_engine *uc, uint32_t id, void *user_data) {
 void instr_limit_timeout_cb(uc_engine *uc, uint32_t id, void *user_data) {
     if(do_print_exit_info) {
         uint32_t pc;
-        int reg_pc;
+        int reg_pc = 0;
         int arch = uc_get_arch(uc);
         if (arch == UC_ARCH_ARM) {
             reg_pc = UC_ARM_REG_PC;
