@@ -5,7 +5,7 @@ import sys
 import logging
 
 #TODO: add MIPS-specific unicorn stuff
-from unicorn import (UC_ARCH_ARM, UC_ARCH_MIPS, UC_MODE_MCLASS, UC_MODE_THUMB, UC_MODE_MIPS32, UC_MODE_LITTLE_ENDIAN, UC_MODE_BIG_ENDIAN, Uc)
+from unicorn import (UC_HOOK_CODE, UC_ARCH_ARM, UC_ARCH_MIPS, UC_MODE_MCLASS, UC_MODE_THUMB, UC_MODE_MIPS32, UC_MODE_LITTLE_ENDIAN, UC_MODE_BIG_ENDIAN, Uc)
 import unicorn 
 
 from . import globs, interrupt_triggers, native, timer, user_hooks
@@ -18,7 +18,7 @@ from .user_hooks import (add_block_hook, add_func_hook,
 from .util import (bytes2int, load_config_deep, parse_address_value,
                    parse_symbols, resolve_region_file_paths)
 
-logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger("emulator")
 
 def unicorn_trace_syms(uc, address, size=0, user_data=None):
@@ -59,8 +59,18 @@ def configure_unicorn(args):
 
     #TODO: add MIPS-specific stuff, and determine endianness
     # Create the unicorn
-    if config.arch == "mips32":
-        if config.endianness == "little-endian":
+    
+
+    if not config.get("arch"):
+        logger.error("architecture must be setup in config file")
+        sys.exit(1)
+
+    if not config.get("endianness"):
+        logger.error("endianness must be setup in config file")
+        sys.exit(1)
+
+    if config["arch"] == "mips32":
+        if config["endianness"] == "little-endian":
             uc = Uc(UC_ARCH_MIPS, UC_MODE_MIPS32 | UC_MODE_LITTLE_ENDIAN)
         else:
             uc = Uc(UC_ARCH_MIPS, UC_MODE_MIPS32 | UC_MODE_BIG_ENDIAN)  
@@ -69,13 +79,14 @@ def configure_unicorn(args):
         uc.global_const = unicorn.mips_const
         uc.arch = "mips32"
         uc.bit_cleaner = 0x0
-    elif config.arch == "cortex-m": # the default is little-endian
+    elif config["arch"] == "cortex-m": # the default is little-endian
         uc = Uc(UC_ARCH_ARM, UC_MODE_THUMB | UC_MODE_MCLASS)
         uc.global_reg_pc = unicorn.arm_const.UC_ARM_REG_PC
         uc.global_reg_sp = unicorn.arm_const.UC_ARM_REG_SP
         uc.global_const = unicorn.arm_const
         uc.arch = "cortex-m"
         uc.bit_cleaner = 0xFFFFFFFE
+
     # uc = Uc(UC_ARCH_ARM, UC_MODE_THUMB | UC_MODE_MCLASS)
 
     uc.symbols, uc.syms_by_addr = parse_symbols(config)
@@ -170,6 +181,7 @@ def configure_unicorn(args):
                 fp.seek(file_offset)
                 region_data = fp.read(file_size)
                 logger.info(f"Loading {len(region_data):08x} bytes at {start + load_offset:08x}")
+                logger.debug(f"the first 8 bytes: {region_data[0:8].hex()}")
                 uc.mem_write(start + load_offset, region_data)
 
             if region.get('is_entry') == True:
@@ -179,15 +191,15 @@ def configure_unicorn(args):
                 entry_image_base = start + (region.get('ivt_offset') or 0)
                 logger.info(f"Found entry_image_base: 0x{entry_image_base:08x}")
     globs.regions = regions
-
+    
     # TODO: for MIPS, need to read stack pointer and entry point from config.yml
     # initial_sp: xxx
     # entry_point: xxx
     if not ('entry_point' in config and 'initial_sp' in config):
         # If we don't have explicit configs, try recovering from IVT
 
-        if config.arch == "mips32":
-            logger.error("For mips32 binaries, entry_point and initial stack pointer need to be set up")
+        if config["arch"] != "cortex-m":
+            logger.error("For binaries of other archs, entry_point and initial stack pointer need to be set up")
             sys.exit(1)
 
         if entry_image_base is None:
@@ -207,9 +219,9 @@ def configure_unicorn(args):
 
     # The stack pointer is aligned during CPU reset
     # uc.reg_write(UC_ARM_REG_SP, config['initial_sp'] & 0xfffffffc)
-    if config.arch == "mips32":
+    if config["arch"] == "mips32":
       uc.reg_write(uc.global_reg_sp, config['initial_sp'])
-    elif config.arch == "cortex-m":
+    elif config["arch"] == "cortex-m":
       uc.reg_write(uc.global_reg_sp, config['initial_sp'] & 0xfffffffc)
 
     mmio_ranges = [(start, start + size) for rname, (start, size, prot) in regions.items() if rname.lower().startswith('mmio')]
@@ -236,10 +248,6 @@ def configure_unicorn(args):
 
     if args.bb_set_file or args.mmio_set_file or args.bb_hash_file:
         native.init_native_tracing(uc, args.bb_set_file, args.bb_hash_file, args.mmio_set_file, mmio_ranges)
-
-    if args.bintrace_file is not None:
-        from .tracing import bintrace
-        bintrace.init_tracing(args.bintrace_file, uc, config, mmio_ranges)
 
     if args.exit_at_bbl != globs.EXIT_AT_NONE:
         exit_at_bbls = [parse_address_value(uc.symbols, args.exit_at_bbl)]
@@ -349,6 +357,11 @@ def configure_unicorn(args):
         uc.gdb = GDBServer(uc, args.gdb_port)
     else:
         uc.gdb = None
+    
+    def hook_fn(uc, address, size, user_data):
+        print(">>> Tracing instruction at 0x%x, instruction size = %u" % (address, size))
+
+    # uc.hook_add(UC_HOOK_CODE, hook_fn, None)
 
     return uc
 
@@ -390,7 +403,6 @@ def populate_parser(parser):
     parser.add_argument('--bb-set-out', dest='bb_set_file', default=None, help="Trace (compact) set of visited basic blocks into binary file.")
     parser.add_argument('--mmio-set-out', dest='mmio_set_file', default=None, help="Trace (compact) set of MMIO access contexts into binary file.")
     parser.add_argument('--bb-hash-out', dest='bb_hash_file', default=None, help="Hash together all sequentially visited basic blocks into binary file. This can be used to compare executions.")
-    parser.add_argument('--trace-out', dest='bintrace_file', default=None, help="Trace MMIO, RAM and BasicBlocks into binary file.")
     parser.add_argument('--dynamic-trace-file-revisions', default=False, action="store_true", help="Instead of overriding trace files for basic block traces, create numbered versions. Could be useful for debugging tracing issues.")
 
     # MMIO access state generation

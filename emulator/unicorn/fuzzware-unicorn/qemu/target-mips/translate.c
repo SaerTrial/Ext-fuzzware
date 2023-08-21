@@ -25,7 +25,7 @@
 #include "cpu.h"
 #include "tcg-op.h"
 #include "exec/cpu_ldst.h"
-
+#include "fuzzer/log.h"
 #include "exec/helper-proto.h"
 #include "exec/helper-gen.h"
 
@@ -11323,6 +11323,19 @@ static int decode_extended_mips16_opc (CPUMIPSState *env, DisasContext *ctx)
     return 4;
 }
 
+
+/* Sync the guest PC to the CPUMIPSState */
+static void sync_pc_to_cpustate(struct uc_struct *uc, TCGContext *tcg_ctx, uint64_t pc) {
+    TCGv_ptr ptr64 = tcg_const_ptr(tcg_ctx, &(((CPUMIPSState *)uc->cpu->env_ptr)->active_tc.PC));
+    // TCGv_ptr ptr32 = tcg_const_ptr(tcg_ctx, &(((CPUMIPSState *)uc->cpu->env_ptr)->regs[15]));
+    // TCGv_i32 pc32 = tcg_const_i32(tcg_ctx, pc);
+    TCGv_i64 pc64 = tcg_const_i64(tcg_ctx, pc);
+    tcg_gen_st_i64(tcg_ctx, pc64, ptr64, 0);
+    // tcg_gen_st_i32(tcg_ctx, pc32, ptr32, 0);
+}
+
+
+
 static int decode_mips16_opc (CPUMIPSState *env, DisasContext *ctx, bool *insn_need_patch)
 {
     TCGContext *tcg_ctx = ctx->uc->tcg_ctx;
@@ -11342,6 +11355,9 @@ static int decode_mips16_opc (CPUMIPSState *env, DisasContext *ctx, bool *insn_n
     op1 = offset = ctx->opcode & 0x1f;
 
     n_bytes = 2;
+
+    /* Sync the current guest PC each instruction with the CpuState. */
+    sync_pc_to_cpustate(ctx->uc, tcg_ctx, ctx->pc);
 
     // Unicorn: trace this instruction on request
     if (HOOK_EXISTS_BOUNDED(env->uc, UC_HOOK_CODE, ctx->pc)) {
@@ -13938,6 +13954,9 @@ static int decode_micromips_opc (CPUMIPSState *env, DisasContext *ctx, bool *ins
         ctx->bstate = BS_STOP;
         return 2;
     }
+
+    /* Sync the current guest PC each instruction with the CpuState. */
+    sync_pc_to_cpustate(ctx->uc, tcg_ctx, ctx->pc);
 
     // Unicorn: trace this instruction on request
     if (HOOK_EXISTS_BOUNDED(env->uc, UC_HOOK_CODE, ctx->pc)) {
@@ -19217,11 +19236,22 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
     // Unicorn: trace this block on request
     // Only hook this block if it is not broken from previous translation due to
     // full translation cache
-    if (!env->uc->block_full && HOOK_EXISTS_BOUNDED(env->uc, UC_HOOK_BLOCK, pc_start)) {
-        env->uc->size_arg = tcg_ctx->gen_opparam_buf - tcg_ctx->gen_opparam_ptr + 1;
-        gen_uc_tracecode(tcg_ctx, 0xf8f8f8f8, UC_HOOK_BLOCK_IDX, env->uc, pc_start);
-    } else {
-        env->uc->size_arg = -1;
+    // if (!env->uc->block_full && HOOK_EXISTS_BOUNDED(env->uc, UC_HOOK_BLOCK, pc_start)) {
+    //     env->uc->size_arg = tcg_ctx->gen_opparam_buf - tcg_ctx->gen_opparam_ptr + 1;
+    //     gen_uc_tracecode(tcg_ctx, 0xf8f8f8f8, UC_HOOK_BLOCK_IDX, env->uc, pc_start);
+    // } else {
+    //     env->uc->size_arg = -1;
+    // }
+
+    sync_pc_to_cpustate(env->uc, tcg_ctx, tb->pc);
+
+    if (HOOK_EXISTS(env->uc, UC_HOOK_BLOCK_UNCONDITIONAL)) {
+        FW_LOG_DBG("Inserting uncondition block hook into " TARGET_FMT_lx "\n", pc_start);
+        gen_uc_unconditional_block(tcg_ctx, env->uc, pc_start);
+    }
+    if (HOOK_EXISTS_BOUNDED(env->uc, UC_HOOK_BLOCK, pc_start)) {
+        FW_LOG_DBG("Inserting conditional block hook into " TARGET_FMT_lx "\n", pc_start);
+        gen_uc_tracecode_block(tcg_ctx, env->uc, pc_start);
     }
 
     gen_tb_start(tcg_ctx);
@@ -19265,6 +19295,8 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
         } else {
             bool insn_need_patch = false;
             int insn_patch_offset = 1;
+
+            sync_pc_to_cpustate(env->uc, tcg_ctx, ctx.pc);
 
             // Unicorn: save param buffer
             if (HOOK_EXISTS(env->uc, UC_HOOK_CODE))
@@ -19503,3 +19535,4 @@ void mips_tcg_init(struct uc_struct *uc)
                                        "fcr31");
     uc->init_tcg = true;
 }
+

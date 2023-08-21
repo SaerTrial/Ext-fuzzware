@@ -36,6 +36,7 @@ def parse_address_value(symbols, value, enforce=True):
             sys.exit(1)
         return None
 
+# TODO: make it arch-independent
 def parse_symbols(config):
     name_to_addr = {}
     addr_to_name = {}
@@ -43,9 +44,9 @@ def parse_symbols(config):
     arch_mark = None
     
     # TODO: address aligning should be arch-specific
-    if config.arch == "mips32":
+    if config["arch"] == "mips32":
         arch_mark = ~0
-    elif config.arch == "cortex-m":
+    elif config["arch"] == "cortex-m":
         arch_mark = 0xFFFFFFFE
 
     if 'symbols' in config:

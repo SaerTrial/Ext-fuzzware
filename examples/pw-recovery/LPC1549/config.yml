@@ -17,7 +17,8 @@ memory_map:
     permissions: r-x
     size: 0x800000
     is_entry: True
-
+arch: cortex-m
+endianness: little-endian
 use_nvic: false
 use_timers: false
 use_systick: false

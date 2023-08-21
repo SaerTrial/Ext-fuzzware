@@ -1,33 +1,35 @@
 include:
-- ./../../configs/hw/boards/pic32mz_memory.yml
+#- ./../../configs/hw/boards/pic32mz_memory.yml
 - ./syms.yml
 
 memory_map:
-  data:
+  sram:
     base_addr: 0x80000000
     file: ./basic_exercises.elf
-    permissions: r--
-    size: 0x278
+    permissions: rw-
+    size: 0x80000
     file_offset: 0x010044
     load_offset: 0x44
-  sram:
-    base_addr: 0x80000280
-    permissions: rw-
-    size: 0x7fd78
   text:
     base_addr: 0x9d000000
     file: ./basic_exercises.elf
     permissions: r-x
-    size: 0x41ac
+    size: 0x5000
     file_offset: 0x020000
   boot:
     base_addr: 0xbfc00000
     file: ./basic_exercises.elf
     permissions: r-x
-    size: 0x1d4
+    size: 0x1000
     file_offset: 0x040000
     is_entry: True
-arch: "mips32"
+  mmio: 
+    base_addr:  0xbf800000
+    size: 0x100000
+    permissions: rw-
+  
+arch: mips32
+endianness: little-endian
 initial_sp: 0x8007fff8
 entry_point: 0xbfc00000
 

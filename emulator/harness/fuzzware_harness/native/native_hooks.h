@@ -5,7 +5,7 @@
 #include "state_snapshotting.h"
 #include "uc_snapshot.h"
 
-//#define DEBUG
+#define DEBUG
 //#define DEBUG_STATE_RESTORE
 //#define DEBUG_SYSTICK
 //#define DEBUG_TIMER

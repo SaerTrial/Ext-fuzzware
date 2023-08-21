@@ -290,6 +290,14 @@ uc_err set_timer_reload_val(uint32_t id, uint64_t reload_val) {
         tim->ticker_val = reload_val;
     }
 
+    #ifdef DEBUG_TIMER
+        puts("reload_timer ");
+        puts("======= Timer state POST ======= ");
+        print_timer_state();
+        fflush(stdout);
+    #endif
+
+
     return UC_ERR_OK;
 }
 

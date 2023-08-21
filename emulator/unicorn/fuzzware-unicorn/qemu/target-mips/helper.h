@@ -1,5 +1,9 @@
 DEF_HELPER_4(uc_tracecode, void, i32, i32, ptr, i64)
 
+DEF_HELPER_2(uc_tracecode_block, void, ptr, i64)
+
+DEF_HELPER_2(uc_unconditional_block, void, ptr, i64)
+
 DEF_HELPER_3(raise_exception_err, noreturn, env, i32, int)
 DEF_HELPER_2(raise_exception, noreturn, env, i32)
 
