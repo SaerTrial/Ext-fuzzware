@@ -20,7 +20,7 @@ INFO:emulator:Found entry_image_base: 0xbfc00000
 DEBUG:emulator:Mapping region mmio at 0x100000, perms: 3
 INFO:emulator:Tracing mmio accesses from 0xbf800000 to 0xbf900000
 [TIMER] Added timer with id 0, Now: num_inuse=1
-=== TIMER 0 === tet
+=== TIMER 0 === tet123
 ticker_val=150000
 reload_val=150000
 in_use=1
