@@ -48,6 +48,8 @@ void fuzzer_reset_cov_armeb(uc_engine *uc, int do_clear) {}
 void fw_log_armeb(const int level, const char *frmt, ...) {}
 #endif
 
+
+
 UNICORN_EXPORT
 unsigned int uc_version(unsigned int *major, unsigned int *minor)
 {
@@ -642,6 +644,7 @@ static void hook_count_cb(struct uc_struct *uc, uint64_t address, uint32_t size,
 
     if (uc->emu_counter > uc->emu_count)
         uc_emu_stop(uc);
+    
 }
 
 static void clear_deleted_hooks(uc_engine *uc)
@@ -801,7 +804,8 @@ uc_err uc_emu_start(uc_engine *uc, uint64_t begin, uint64_t until, uint64_t time
 UNICORN_EXPORT
 uc_err uc_emu_stop(uc_engine *uc)
 {
-    if (uc->emulation_done)
+
+    if (uc->emulation_done) 
         return UC_ERR_OK;
 
     uc->emulation_done = true;
@@ -1642,4 +1646,11 @@ int uc_get_arch(uc_engine *uc)
         return UC_ERR_ARCH;
     }
     return uc->arch;
+}
+
+
+UNICORN_EXPORT
+void uc_set_emulation_done(uc_engine *uc, bool flag)
+{
+    uc->emulation_done = flag;
 }

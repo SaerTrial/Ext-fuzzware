@@ -5,8 +5,10 @@ import sys
 import logging
 
 #TODO: add MIPS-specific unicorn stuff
-from unicorn import (UC_HOOK_CODE, UC_ARCH_ARM, UC_ARCH_MIPS, UC_MODE_MCLASS, UC_MODE_THUMB, UC_MODE_MIPS32, UC_MODE_LITTLE_ENDIAN, UC_MODE_BIG_ENDIAN, Uc)
-import unicorn 
+from unicorn import *
+from unicorn.mips_const import *
+from unicorn.arm_const import *
+
 
 from . import globs, interrupt_triggers, native, timer, user_hooks
 from .gdbserver import GDBServer
@@ -69,21 +71,26 @@ def configure_unicorn(args):
         logger.error("endianness must be setup in config file")
         sys.exit(1)
 
+
+    # TODO: replace prefix unicorn
     if config["arch"] == "mips32":
         if config["endianness"] == "little-endian":
             uc = Uc(UC_ARCH_MIPS, UC_MODE_MIPS32 | UC_MODE_LITTLE_ENDIAN)
         else:
             uc = Uc(UC_ARCH_MIPS, UC_MODE_MIPS32 | UC_MODE_BIG_ENDIAN)  
-        uc.global_reg_pc = unicorn.mips_const.UC_MIPS_REG_PC
-        uc.global_reg_sp = unicorn.mips_const.UC_MIPS_REG_SP
-        uc.global_const = unicorn.mips_const
+        uc.global_reg_pc = UC_MIPS_REG_PC
+        uc.global_reg_sp = UC_MIPS_REG_SP
         uc.arch = "mips32"
         uc.bit_cleaner = 0x0
+        # enable DSP
+        dsp = uc.reg_read(UC_MIPS_REG_CP0_STATUS)
+        dsp |= (1 << 24)
+        uc.reg_write(UC_MIPS_REG_CP0_STATUS, dsp)
+
     elif config["arch"] == "cortex-m": # the default is little-endian
         uc = Uc(UC_ARCH_ARM, UC_MODE_THUMB | UC_MODE_MCLASS)
-        uc.global_reg_pc = unicorn.arm_const.UC_ARM_REG_PC
-        uc.global_reg_sp = unicorn.arm_const.UC_ARM_REG_SP
-        uc.global_const = unicorn.arm_const
+        uc.global_reg_pc = UC_ARM_REG_PC
+        uc.global_reg_sp = UC_ARM_REG_SP
         uc.arch = "cortex-m"
         uc.bit_cleaner = 0xFFFFFFFE
 

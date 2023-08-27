@@ -1,2 +1,0 @@
-[console_scripts]
-fuzzware_model = fuzzware_modeling:main

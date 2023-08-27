@@ -1,6 +1,6 @@
 click==7.1.2
 rq
-PyYAML>=5.3
+PyYAML>=5.3,<6.0
 watchdog
 intelhex
 pyelftools

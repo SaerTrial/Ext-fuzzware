@@ -825,6 +825,9 @@ UNICORN_EXPORT
 int uc_get_arch(uc_engine *uc);
 
 
+UNICORN_EXPORT
+void uc_set_emulation_done(uc_engine *uc, bool flag);
+
 #ifdef __cplusplus
 }
 #endif

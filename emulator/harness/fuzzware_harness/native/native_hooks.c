@@ -139,6 +139,7 @@ static void determine_input_mode() {
 
 
 void do_exit(uc_engine *uc, uc_err err) {
+    
     if(do_print_exit_info) {
         fflush(stdout);
     }
@@ -146,6 +147,10 @@ void do_exit(uc_engine *uc, uc_err err) {
     if(!duplicate_exit) {
         custom_exit_reason = err;
         duplicate_exit = true;
+
+        // workaround: this version of unicorn can't stop emulation properly
+        // while the official one works
+        uc_set_emulation_done(uc, false);
         uc_emu_stop(uc);
     }
 }
@@ -320,6 +325,7 @@ bool get_fuzz(uc_engine *uc, uint8_t *buf, uint32_t size) {
         if(write(pipe_to_parent[1], &ticks_so_far, sizeof(ticks_so_far)) != sizeof(ticks_so_far)) {
            puts("[Discovery Child] Error: could not write number of ticks to parent"); fflush(stdout);
         }
+
         _exit(0);
     } else if (!input_already_given) {
         // Load file-based input now
@@ -435,7 +441,7 @@ void hook_mmio_access(uc_engine *uc, uc_mem_type type,
     }
 
     #ifdef DEBUG
-    printf("Serving %d byte(s) fuzz for mmio access to 0x%08lx, pc: 0x%08x, rem bytes: %ld\n", size, addr, pc, fuzz_size-fuzz_cursor); fflush(stdout);
+    printf("[%x] Serving %d byte(s) fuzz for mmio access to 0x%08lx, pc: 0x%08x, rem bytes: %ld\n", getpid(), size, addr, pc, fuzz_size-fuzz_cursor); fflush(stdout);
     printf("[debugging] fuzz_size: %ld, fuzz_cursor: %ld\n", fuzz_size, fuzz_cursor); fflush(stdout);
     #endif
 
@@ -447,7 +453,6 @@ void hook_mmio_access(uc_engine *uc, uc_mem_type type,
     printf(", value: 0x%lx\n", val); fflush(stdout);
     #endif
     uc_mem_write(uc, addr, (uint8_t *)&val, size);
-
     out:
 
     latest_mmio_fuzz_access_size = fuzz_cursor - latest_mmio_fuzz_access_index;
@@ -913,7 +918,8 @@ static void *init_bitmap(uc_engine *uc) {
             do_fuzz = 0;
         }
     } else {
-        puts("[FORKSERVER SETUP] It looks like we are not running under AFL, going for single input");
+        printf("[FORKSERVER SETUP] It looks like we are not running under AFL, going for single input\n");
+        fflush(stdout);
         do_fuzz = 0;
     }
 
@@ -1162,7 +1168,8 @@ static void restore_snapshot(uc_engine *uc) {
 }
 
 // TODO: make it arch-independent
-uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path) {
+uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path)
+{
     uint64_t pc = 0;
     fflush(stdout);
     //TODO: all is arch-specific
@@ -1219,6 +1226,9 @@ uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path) {
     // For every run (and to keep consistency between single and fuzzing runs), find out how many basic blocks we can execute before hitting the first MMIO read
     child_pid = fork();
     if(child_pid) {
+        printf("child_pid:%x, parent_pid:%x\n", child_pid, getpid());
+        fflush(stdout);
+
         // parent: wait for the discovery child to report back the number of tbs we need to execute
         if(read(pipe_to_parent[0], &required_ticks, sizeof(required_ticks)) != sizeof(required_ticks)) {
             puts("[ERROR] Could not retrieve the number of required ticks during discovery forking");
@@ -1235,11 +1245,7 @@ uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path) {
             // Set up a timer that will make use stop after executing the prefix
             set_timer_reload_val(instr_limit_timer_id, required_ticks-2);
 
-            // Execute the prefix
-            // TODO: the last bit of below address performs xor by 1, that relates to cortex-m thumb mode
-            // need to refactor it being arch-independent
-             
-
+            // Execute the prefix  
             if((emu_error = uc_emu_start(uc, pc | arch_mark, 0, 0, 0))) {
                 printf("[ERROR] Could not execute the first some steps, error code: %d", emu_error);
                 exit(-1);
