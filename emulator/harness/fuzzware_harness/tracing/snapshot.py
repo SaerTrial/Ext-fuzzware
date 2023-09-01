@@ -1,18 +1,109 @@
 import logging
-from unicorn.arm_const import (UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_R4,
-            UC_ARM_REG_R5, UC_ARM_REG_R6, UC_ARM_REG_R7, UC_ARM_REG_R8, UC_ARM_REG_R9,
-            UC_ARM_REG_R10, UC_ARM_REG_R11, UC_ARM_REG_R12, UC_ARM_REG_LR, UC_ARM_REG_PC,
-            UC_ARM_REG_SP, UC_ARM_REG_XPSR)
+from unicorn.arm_const import *
+from unicorn.mips_const import *
 from unicorn.unicorn_const import UC_HOOK_MEM_READ, UC_HOOK_MEM_READ_AFTER
 from ..exit import add_exit_hook
 from .trace_bbs import dump_current_bb_trace
-
+from .. import util
 logger = logging.getLogger("emulator")
 
-uc_reg_consts = [UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_R4,
+uc_reg_consts = {"cortex-m": [UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_R4,
             UC_ARM_REG_R5, UC_ARM_REG_R6, UC_ARM_REG_R7, UC_ARM_REG_R8, UC_ARM_REG_R9,
             UC_ARM_REG_R10, UC_ARM_REG_R11, UC_ARM_REG_R12, UC_ARM_REG_LR, UC_ARM_REG_PC,
-            UC_ARM_REG_SP, UC_ARM_REG_XPSR]
+            UC_ARM_REG_SP, UC_ARM_REG_XPSR],
+                "mips32": [UC_MIPS_REG_PC,
+            UC_MIPS_REG_0,
+            UC_MIPS_REG_1,
+            UC_MIPS_REG_2,
+            UC_MIPS_REG_3,
+            UC_MIPS_REG_4,
+            UC_MIPS_REG_5,
+            UC_MIPS_REG_6,
+            UC_MIPS_REG_7,
+            UC_MIPS_REG_8,
+            UC_MIPS_REG_9,
+            UC_MIPS_REG_10,
+            UC_MIPS_REG_11,
+            UC_MIPS_REG_12,
+            UC_MIPS_REG_13,
+            UC_MIPS_REG_14,
+            UC_MIPS_REG_15,
+            UC_MIPS_REG_16,
+            UC_MIPS_REG_17,
+            UC_MIPS_REG_18,
+            UC_MIPS_REG_19,
+            UC_MIPS_REG_20,
+            UC_MIPS_REG_21,
+            UC_MIPS_REG_22,
+            UC_MIPS_REG_23,
+            UC_MIPS_REG_24,
+            UC_MIPS_REG_25,
+            UC_MIPS_REG_26,
+            UC_MIPS_REG_27,
+            UC_MIPS_REG_28,
+            UC_MIPS_REG_29,
+            UC_MIPS_REG_30,
+            UC_MIPS_REG_31]
+        }
+
+dump_template = {"cortex-m": """r0=0x{:x}
+r1=0x{:x}
+r2=0x{:x}
+r3=0x{:x}
+r4=0x{:x}
+r5=0x{:x}
+r6=0x{:x}
+r7=0x{:x}
+r8=0x{:x}
+r9=0x{:x}
+r10=0x{:x}
+r11=0x{:x}
+r12=0x{:x}
+lr=0x{:x}
+pc=0x{:x}
+sp=0x{:x}
+xpsr=0x{:x}
+""",
+"mips32": """
+pc=0x{:x}
+r0=0x{:x}
+r1=0x{:x}
+r2=0x{:x}
+r3=0x{:x}
+r4=0x{:x}
+r5=0x{:x}
+r6=0x{:x}
+r7=0x{:x}
+r8=0x{:x}
+r9=0x{:x}
+r10=0x{:x}
+r11=0x{:x}
+r12=0x{:x}
+r13=0x{:x}
+r14=0x{:x}
+r15=0x{:x}
+r16=0x{:x}
+r17=0x{:x}
+r18=0x{:x}
+r19=0x{:x}
+r20=0x{:x}
+r21=0x{:x}
+r22=0x{:x}
+r23=0x{:x}
+r24=0x{:x}
+r25=0x{:x}
+r26=0x{:x}
+r27=0x{:x}
+r28=0x{:x}
+r29=0x{:x}
+r30=0x{:x}
+r31=0x{:x}
+"""
+}
+
+
+
+
 
 NUM_BB_LINES_FOR_MMIO_ACCESS_STATE_TRACE = 50 * 1000
 
@@ -28,7 +119,7 @@ def dump_state_exit_hook(uc):
     dump_state(out_filename, regs, content_map)
 
 def collect_regs(uc):
-    return {const: uc.reg_read(const) for const in uc_reg_consts}
+    return {const: uc.reg_read(const) for const in uc_reg_consts[uc.arch_name]}
 
 def collect_state(uc):
     from .. import globs
@@ -100,7 +191,7 @@ def collect_state(uc):
 
     return regs, content_chunks
 
-def dump_state(filename, regs, content_chunks):
+def dump_state(uc, filename, regs, content_chunks):
     from intelhex import IntelHex
     ih = IntelHex()
 
@@ -108,26 +199,7 @@ def dump_state(filename, regs, content_chunks):
         ih.puts(base_addr, contents)
 
     with open(filename, "w") as f:
-
-        f.write(
-"""r0=0x{:x}
-r1=0x{:x}
-r2=0x{:x}
-r3=0x{:x}
-r4=0x{:x}
-r5=0x{:x}
-r6=0x{:x}
-r7=0x{:x}
-r8=0x{:x}
-r9=0x{:x}
-r10=0x{:x}
-r11=0x{:x}
-r12=0x{:x}
-lr=0x{:x}
-pc=0x{:x}
-sp=0x{:x}
-xpsr=0x{:x}
-""".format(*[regs[const] for const in uc_reg_consts]))
+        f.write(dump_template[uc.arch_name].format(*[regs[const] for const in uc_reg_consts[uc.arch_name]]))
         logger.debug("Writing ihex dump now...")
         ih.write_hex_file(f)
 
@@ -147,13 +219,14 @@ def mem_hook_dump_state_after_mmio_read(uc, access, address, size, value, user_d
     global mmio_states_name_prefix
     global latest_regs
     global dump_pc_address_pairs
-    pc = uc.reg_read(UC_ARM_REG_PC)
+    
+    pc = uc.reg_read(util.get_current_pc(uc))
 
     # Allow user to specify which MMIO states are of interest
     if dump_pc_address_pairs and (pc, address) not in dump_pc_address_pairs:
         return
-
-    old_pc = latest_regs[UC_ARM_REG_PC]
+    
+    old_pc = latest_regs[util.get_current_pc(uc)]
     if pc != old_pc:
         logger.warning("Got unconsistency in mem read hook between 0x{:08x} (before) vs 0x{:08x} (after)".format(old_pc, pc))
         input("continue...?")
@@ -162,7 +235,7 @@ def mem_hook_dump_state_after_mmio_read(uc, access, address, size, value, user_d
         dump_count += 1
         logger.debug("Dumping state for MMIO access to 0x{:08x} from 0x{:08x}".format(address, pc))
         _, content_map = collect_state(uc)
-        latest_regs[UC_ARM_REG_PC] = pc
+        latest_regs[util.get_current_pc(uc)] = pc
 
         from .. import globs
 
@@ -177,7 +250,7 @@ def mem_hook_dump_state_after_mmio_read(uc, access, address, size, value, user_d
 
 def mem_hook_record_regs_before_mmio_read(uc, access, address, size, value, user_data):
     global latest_regs
-    pc = uc.reg_read(UC_ARM_REG_PC)
+    pc = uc.reg_read(util.get_current_pc(uc))
     # Allow user to specify which MMIO states are of interest
     if dump_pc_address_pairs and (pc, address) not in dump_pc_address_pairs:
         return

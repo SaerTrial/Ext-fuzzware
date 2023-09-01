@@ -7,7 +7,7 @@ from unicorn.arm_const import UC_ARM_REG_PC
 from . import globs, native
 from .exit import do_exit
 from .user_hooks import add_func_hook, remove_func_hook
-
+from . import util
 logger = logging.getLogger("emulator")
 
 DEFAULT_TIMER_RELOAD_VAL = 0x1000
@@ -18,7 +18,7 @@ internal_indices = {}
 delayed_timers = {}
 
 def timer_start_block_hook(uc):
-    address = uc.reg_read(UC_ARM_REG_PC)
+    address = uc.reg_read(util.get_current_pc(uc))
     if address in delayed_timers:
         # Remove the timer along the way
         for timer_id in delayed_timers.pop(address):

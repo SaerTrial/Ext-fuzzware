@@ -10,12 +10,8 @@ from socket import AF_INET, SO_REUSEADDR, SOCK_STREAM, SOL_SOCKET
 from threading import Event, Thread
 from time import sleep
 import ast
-from unicorn.arm_const import (UC_ARM_REG_CPSR, UC_ARM_REG_LR, UC_ARM_REG_PC,
-                               UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2,
-                               UC_ARM_REG_R3, UC_ARM_REG_R4, UC_ARM_REG_R5,
-                               UC_ARM_REG_R6, UC_ARM_REG_R7, UC_ARM_REG_R8,
-                               UC_ARM_REG_R9, UC_ARM_REG_R10, UC_ARM_REG_R11,
-                               UC_ARM_REG_R12, UC_ARM_REG_SP)
+from util import *
+
 
 logger = logging.getLogger("emulator")
 
@@ -64,23 +60,19 @@ arm_target_xml = b'''<?xml version="1.0"?>
 '''
 
 # taken from avatar2.archs.arm
-unicorn_registers = {'r0': UC_ARM_REG_R0, 'r1': UC_ARM_REG_R1, 'r2': UC_ARM_REG_R2,
-                     'r3': UC_ARM_REG_R3, 'r4': UC_ARM_REG_R4, 'r5': UC_ARM_REG_R5,
-                     'r6': UC_ARM_REG_R6, 'r7': UC_ARM_REG_R7, 'r8': UC_ARM_REG_R8,
-                     'r9': UC_ARM_REG_R9, 'r10': UC_ARM_REG_R10, 'r11': UC_ARM_REG_R11,
-                     'r12': UC_ARM_REG_R12, 'sp': UC_ARM_REG_SP, 'lr': UC_ARM_REG_LR,
-                     'pc': UC_ARM_REG_PC, 'cpsr': UC_ARM_REG_CPSR}
+unicorn_registers = None
 
 
 class GDBServer(Thread):
 
     def __init__(self, uc, port=3333):
         super().__init__()
+        global unicorn_registers
         self.unicorn = uc
         self.daemon=True
         self.sock = socket.socket(AF_INET, SOCK_STREAM)
         self.sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-
+        unicorn_registers = get_arch_registers(self.unicorn)
         self.port = port
         self.conn = None
         self._packetsize=0x47FF

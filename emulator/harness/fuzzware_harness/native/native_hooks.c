@@ -155,38 +155,17 @@ void do_exit(uc_engine *uc, uc_err err) {
     }
 }
 
-// TODO: make it arch-independent
 void hook_block_debug(uc_engine *uc, uint64_t address, uint32_t size, void *user_data) {
-    uint32_t lr;
-    int arch = uc_get_arch(uc);
-
-    if (arch == UC_ARCH_ARM) {
-        uc_reg_read(uc, UC_ARM_REG_LR, &lr);
-        printf("Basic Block: addr= 0x%016lx (lr=0x%x)\n", address, lr);
-    }else if (arch == UC_ARCH_MIPS)
-    {
-        printf("Basic Block: addr= 0x%016lx\n", address);
-    }
-
-    fflush(stdout);
+    print_bb_info(uc, address);
 }
 
-// TODO: make it arch-independent
 void hook_debug_mem_access(uc_engine *uc, uc_mem_type type,
         uint64_t address, int size, int64_t value, void *user_data) {
     uint32_t pc, sp;
-    int reg_pc = 0, reg_sp = 0;
-    int arch = uc_get_arch(uc);
-    if (arch == UC_ARCH_ARM) {
-        reg_pc = UC_ARM_REG_PC;
-        reg_sp = UC_ARM_REG_SP;
-    }else if (arch == UC_ARCH_MIPS)
-    {
-        reg_pc = UC_MIPS_REG_PC;
-        reg_sp = UC_MIPS_REG_SP;
-    }
-    uc_reg_read(uc, reg_pc, &pc);
-    uc_reg_read(uc, reg_sp, &sp);
+    uint32_t arch_pc = get_current_pc(uc), arch_sp = get_current_sp(uc);
+
+    uc_reg_read(uc, arch_pc, &pc);
+    uc_reg_read(uc, arch_sp, &sp);
 
     // uc_reg_read(uc, UC_ARM_REG_SP, &sp);
     // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
@@ -222,20 +201,12 @@ uc_err add_debug_hooks(uc_engine *uc) {
 }
 
 
-//TODO: make it arch-independent
 bool hook_debug_mem_invalid_access(uc_engine *uc, uc_mem_type type,
         uint64_t address, int size, int64_t value, void *user_data) {
     uint64_t pc = 0;
-    int reg_pc = 0;
-    int arch = uc_get_arch(uc);
-
-    if (arch == UC_ARCH_ARM) {
-        reg_pc = UC_ARM_REG_PC;
-    }else if (arch == UC_ARCH_MIPS)
-    {
-        reg_pc = UC_MIPS_REG_PC;
-    }
-    uc_reg_read(uc, reg_pc, &pc);
+    int arch_pc = get_current_pc(uc);
+    
+    uc_reg_read(uc, arch_pc, &pc);
     // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
     if(type == UC_MEM_WRITE_UNMAPPED || type == UC_MEM_WRITE_PROT) {
         printf("        >>> [ 0x%08lx ] INVALID Write: addr= 0x%016lx size=%d data=0x%016lx\n", pc, address, size, value);
@@ -397,22 +368,14 @@ uint32_t fuzz_remaining() {
     return fuzz_size - fuzz_cursor;
 }
 
-// TODO: make it arch-independent 
 void hook_mmio_access(uc_engine *uc, uc_mem_type type,
                       uint64_t addr, int size, int64_t value, void *user_data)
 {
     uint32_t pc = 0;
     latest_mmio_fuzz_access_index = fuzz_cursor;
-    int reg_pc = 0;
-    int arch = uc_get_arch(uc);
-
-    if (arch == UC_ARCH_ARM) {
-        reg_pc = UC_ARM_REG_PC;
-    }else if (arch == UC_ARCH_MIPS)
-    {
-        reg_pc = UC_MIPS_REG_PC;
-    }
-    uc_reg_read(uc, reg_pc, &pc);
+    uint32_t arch_pc = get_current_pc(uc);
+    
+    uc_reg_read(uc, arch_pc, &pc);
     // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
 
     // TODO: optimize this lookup
@@ -562,22 +525,15 @@ uc_err register_py_handled_mmio_ranges(uc_engine *uc, uc_cb_hookmem_t py_mmio_ca
     return UC_ERR_OK;
 }
 
-// TODO: make it arch-independent
 void linear_mmio_model_handler(uc_engine *uc, uc_mem_type type, uint64_t addr, int size, int64_t value, void *user_data) {
     struct linear_mmio_model_config *model_state = (struct linear_mmio_model_config *) user_data;
 
     model_state->val += model_state->step;
 
     #ifdef DEBUG
-    int reg_pc = 0;
+    uint32_t arch_pc = get_current_pc(uc);
     uint32_t pc;
-    int arch = uc_get_arch(uc);
-    if (arch == UC_ARCH_ARM) {
-        reg_pc = UC_ARM_REG_PC;
-    }else if (arch == UC_ARCH_MIPS)
-    {
-        reg_pc = UC_MIPS_REG_PC;
-    }
+
     uc_reg_read(uc, reg_pc, &pc);
     // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
     printf("[0x%08x] Native Linear MMIO handler: [0x%08lx] = [0x%x]\n", pc, addr, model_state->val); fflush(stdout);
@@ -586,22 +542,15 @@ void linear_mmio_model_handler(uc_engine *uc, uc_mem_type type, uint64_t addr, i
     uc_mem_write(uc, addr, &model_state->val, sizeof(model_state->val));
 }
 
-// TODO: make it arch-independent
 void constant_mmio_model_handler(uc_engine *uc, uc_mem_type type, uint64_t addr, int size, int64_t value, void *user_data) {
     struct constant_mmio_model_config *model_state = (struct constant_mmio_model_config *) user_data;
     uint64_t val = model_state->val;
 
     #ifdef DEBUG
-    int reg_pc = 0;
+    uint32_t arch_pc = get_current_pc(uc);
     uint32_t pc;
-    int arch = uc_get_arch(uc);
-    if (arch == UC_ARCH_ARM) {
-        reg_pc = UC_ARM_REG_PC;
-    }else if (arch == UC_ARCH_MIPS)
-    {
-        reg_pc = UC_MIPS_REG_PC;
-    }
-    uc_reg_read(uc, reg_pc, &pc);
+ 
+    uc_reg_read(uc, arch_pc, &pc);
     // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
     printf("[0x%08x] Native Constant MMIO handler: [0x%08lx] = [0x%lx]\n", pc, addr, val); fflush(stdout);
     #endif
@@ -610,7 +559,6 @@ void constant_mmio_model_handler(uc_engine *uc, uc_mem_type type, uint64_t addr,
     uc_mem_write(uc, addr, &val, size);
 }
 
-// TODO: make it arch-independent
 void bitextract_mmio_model_handler(uc_engine *uc, uc_mem_type type, uint64_t addr, int size, int64_t value, void *user_data)
 {
     struct bitextract_mmio_model_config *config = (struct bitextract_mmio_model_config *) user_data;
@@ -626,40 +574,26 @@ void bitextract_mmio_model_handler(uc_engine *uc, uc_mem_type type, uint64_t add
     uc_mem_write(uc, addr, &result_val, size);
 
     #ifdef DEBUG
-    int reg_pc = 0;
+    uint32_t arch_pc = get_current_pc(uc);
     uint32_t pc;
-    int arch = uc_get_arch(uc);
-    if (arch == UC_ARCH_ARM) {
-        reg_pc = UC_ARM_REG_PC;
-    }else if (arch == UC_ARCH_MIPS)
-    {
-        reg_pc = UC_MIPS_REG_PC;
-    }
-    uc_reg_read(uc, reg_pc, &pc);
+
+    uc_reg_read(uc, arch_pc, &pc);
 
     // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
     printf("[0x%08x] Native Bitextract MMIO handler: [0x%08lx] = [0x%lx] from %d byte input: %lx\n", pc, addr, result_val, config->byte_size, fuzzer_val); fflush(stdout);
     #endif
 }
 
-// TODO: make it arch-independent
 void value_set_mmio_model_handler(uc_engine *uc, uc_mem_type type, uint64_t addr, int size, int64_t value, void *user_data) {
     struct value_set_mmio_model_config *config = (struct value_set_mmio_model_config *) user_data;
 
     uint64_t result_val;
     uint8_t fuzzer_val = 0;
     #ifdef DEBUG
-    int reg_pc = 0;
+    uint32_t arch_pc = get_current_pc(uc);
     uint32_t pc;
-    int arch = uc_get_arch(uc);
-    if (arch == UC_ARCH_ARM) {
-        reg_pc = UC_ARM_REG_PC;
-    }else if (arch == UC_ARCH_MIPS)
-    {
-        reg_pc = UC_MIPS_REG_PC;
-    }
 
-    uc_reg_read(uc, reg_pc, &pc);
+    uc_reg_read(uc, arch_pc, &pc);
     // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
     #endif
 
@@ -755,7 +689,6 @@ uc_err register_bitextract_mmio_models(uc_engine *uc, uint64_t *starts, uint64_t
     return UC_ERR_OK;
 }
 
-// TODO: make it arch-independent
 uc_err register_value_set_mmio_models(uc_engine *uc, uint64_t *starts, uint64_t *ends, uint32_t *pcs, uint32_t *value_nums, uint32_t **value_lists, int num_ranges) {
     struct value_set_mmio_model_config *model_configs = calloc(num_ranges, sizeof(struct value_set_mmio_model_config));
 
@@ -764,15 +697,9 @@ uc_err register_value_set_mmio_models(uc_engine *uc, uint64_t *starts, uint64_t 
     for (int i = 0; i < num_ranges; ++i) {
         #ifdef DEBUG
         uint32_t pc;
-        int arch = uc_get_arch(uc);
-        int reg_pc = 0;
-        if (arch == UC_ARCH_ARM) {
-            reg_pc = UC_ARM_REG_PC;
-        }else if (arch == UC_ARCH_MIPS)
-        {
-            reg_pc = UC_MIPS_REG_PC;
-        }
-        uc_reg_read(uc, reg_pc, &pc);
+        uint32_t arch_pc = get_current_pc(uc);
+
+        uc_reg_read(uc, arch_pc, &pc);
         // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
         printf("Registering value set model: [%x] %lx - %lx with numvalues, value_set: %d, [", pcs[i], starts[i], ends[i], value_nums[i]);
         for (uint32_t j = 0; j < value_nums[i]; ++j) {
@@ -928,31 +855,22 @@ static void *init_bitmap(uc_engine *uc) {
     return bitmap;
 }
 
-//TODO: make it arch-independent
 static inline int run_single(uc_engine *uc) {
     int status;
     uint64_t pc = 0;
     int sig = -1;
 
-    int reg_pc = 0;
-    uint32_t mark = 0;
-    int arch = uc_get_arch(uc);
-    if (arch == UC_ARCH_ARM) {
-        reg_pc = UC_ARM_REG_PC;
-        mark = 1;
-    }else if (arch == UC_ARCH_MIPS)
-    {
-        reg_pc = UC_MIPS_REG_PC;
-        mark = 0;
-    }
+    uint32_t arch_pc = get_current_pc(uc);
+    uint32_t pc_mark = get_pc_mark(uc);
 
-    uc_reg_read(uc, reg_pc, &pc);
+
+    uc_reg_read(uc, arch_pc, &pc);
 
     // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
 
     // status = uc_emu_start(uc, pc | 1, 0, 0, 0);
 
-    status = uc_emu_start(uc, pc | mark, 0, 0, 0);
+    status = uc_emu_start(uc, pc | pc_mark, 0, 0, 0);
 
     if(custom_exit_reason != UC_ERR_OK) {
         status = custom_exit_reason;
@@ -1018,20 +936,12 @@ void fuzz_consumption_timeout_cb(uc_engine *uc, uint32_t id, void *user_data) {
 }
 
 #ifdef DEBUG_INJECT_TIMER
-// TODO: make it arch-independent
 void test_timeout_cb(uc_engine *uc, uint32_t id, void *user_data) {
     uint32_t pc;
-    int reg_pc = 0;
-    int arch = uc_get_arch(uc);
-    if (arch == UC_ARCH_ARM) {
-        reg_pc = UC_ARM_REG_PC;
-    }else if (arch == UC_ARCH_MIPS)
-    {
-        reg_pc = UC_MIPS_REG_PC;
-    }
+    uint32_t arch_pc = get_current_pc(uc);
 
    if(!is_discovery_child) {
-        uc_reg_read(uc, reg_pc, &pc);
+        uc_reg_read(uc, arch_pc, &pc);
         // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
         printf("Test timer triggered at pc 0x%08x\n", pc);
         fflush(NULL);
@@ -1042,16 +952,9 @@ void test_timeout_cb(uc_engine *uc, uint32_t id, void *user_data) {
 void instr_limit_timeout_cb(uc_engine *uc, uint32_t id, void *user_data) {
     if(do_print_exit_info) {
         uint32_t pc;
-        int reg_pc = 0;
-        int arch = uc_get_arch(uc);
-        if (arch == UC_ARCH_ARM) {
-            reg_pc = UC_ARM_REG_PC;
-        }else if (arch == UC_ARCH_MIPS)
-        {
-            reg_pc = UC_MIPS_REG_PC;
-        }
-
-        uc_reg_read(uc, reg_pc, &pc);
+        uint32_t arch_pc = get_current_pc(uc);
+  
+        uc_reg_read(uc, arch_pc, &pc);
         printf("Ran into instruction limit of %lu at 0x%08x - exiting\n", get_timer_reload_val(instr_limit_timer_id), pc);
     }
     do_exit(uc, UC_ERR_OK);
@@ -1167,26 +1070,17 @@ static void restore_snapshot(uc_engine *uc) {
     custom_exit_reason = UC_ERR_OK;
 }
 
-// TODO: make it arch-independent
 uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path)
 {
     uint64_t pc = 0;
     fflush(stdout);
-    //TODO: all is arch-specific
-    int reg_pc = 0;
-    int arch = uc_get_arch(uc);
-    uint64_t arch_mark = 0;
-    if (arch == UC_ARCH_ARM) {
-        reg_pc = UC_ARM_REG_PC;
-        arch_mark = 0x1;
-    }else if (arch == UC_ARCH_MIPS)
-    {
-        reg_pc = UC_MIPS_REG_PC;
-        arch_mark = 0x0;
-    }
+   
+    u_int32_t arch_pc = get_current_pc(uc);
+    uint64_t pc_mark = get_pc_mark(uc);
 
 
-    uc_reg_read(uc, reg_pc, &pc);
+
+    uc_reg_read(uc, arch_pc, &pc);
     //uc_reg_read(uc, UC_ARM_REG_PC, &pc);
     init_bitmap(uc);
 
@@ -1226,9 +1120,6 @@ uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path)
     // For every run (and to keep consistency between single and fuzzing runs), find out how many basic blocks we can execute before hitting the first MMIO read
     child_pid = fork();
     if(child_pid) {
-        printf("child_pid:%x, parent_pid:%x\n", child_pid, getpid());
-        fflush(stdout);
-
         // parent: wait for the discovery child to report back the number of tbs we need to execute
         if(read(pipe_to_parent[0], &required_ticks, sizeof(required_ticks)) != sizeof(required_ticks)) {
             puts("[ERROR] Could not retrieve the number of required ticks during discovery forking");
@@ -1246,7 +1137,7 @@ uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path)
             set_timer_reload_val(instr_limit_timer_id, required_ticks-2);
 
             // Execute the prefix  
-            if((emu_error = uc_emu_start(uc, pc | arch_mark, 0, 0, 0))) {
+            if((emu_error = uc_emu_start(uc, pc | pc_mark, 0, 0, 0))) {
                 printf("[ERROR] Could not execute the first some steps, error code: %d", emu_error);
                 exit(-1);
             }
@@ -1261,10 +1152,9 @@ uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path)
     } else {
         // child: Run until we hit an input consumption
         is_discovery_child = 1;
-        // TODO: the last bit of below address performs xor by 1, that relates to cortex-m thumb mode
-        // need to refactor it being arch-independent
+
         // uc_err child_emu_status = uc_emu_start(uc, pc | 1, 0, 0, 0);
-        uc_err child_emu_status = uc_emu_start(uc, pc | arch_mark, 0, 0, 0);
+        uc_err child_emu_status = uc_emu_start(uc, pc | pc_mark, 0, 0, 0);
 
         // We do not expect to get here. The child should exit by itself in get_fuzz
         printf("[ERROR] Emulation stopped using just the prefix input (%d: %s)\n", child_emu_status, uc_strerror(child_emu_status));
@@ -1292,7 +1182,7 @@ uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path)
     if(do_fuzz) {
         uc_fuzzer_reset_cov(uc, 1);
         // TODO: make it arch-independent
-        uc_reg_read(uc, reg_pc, &pc);
+        uc_reg_read(uc, arch_pc, &pc);
         // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
         trigger_snapshotting(uc);
 
@@ -1348,8 +1238,7 @@ uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path)
             } else {
                 // Non-crashing exit (includes different timeouts)
                 uint32_t pc;
-                // TODO: make it arch-independent
-                uc_reg_read(uc, reg_pc, &pc);
+                uc_reg_read(uc, arch_pc, &pc);
                 // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
                 printf("Exited without crash at 0x%08x - If no other reason, we ran into one of the limits\n", pc);
             }

@@ -6,7 +6,7 @@ from unicorn.arm_const import UC_ARM_REG_PC
 
 from ..exit import do_exit
 from ..globs import MMIO_HOOK_PC_ALL_ACCESS_SITES
-from ..util import parse_address_value
+from ..util import *
 
 logger = logging.getLogger("emulator")
 
@@ -14,7 +14,7 @@ mmio_handlers = []
 def mmio_access_handler_wrapper_hook(uc, access, address, size, value, user_data):
     global mmio_handlers
 
-    curr_pc = uc.reg_read(UC_ARM_REG_PC)
+    curr_pc = uc.reg_read(get_current_pc(uc))
     for start, end, pc, callback in mmio_handlers:
         if start <= address <= end and pc in (0, curr_pc):
             if callback(uc, access, address, size, value, user_data):

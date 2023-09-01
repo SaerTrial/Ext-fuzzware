@@ -73,3 +73,61 @@ void print_state(uc_engine *uc) {
     puts("======================\n");
     fflush(stdout);
 }
+
+
+uint32_t get_current_pc(uc_engine *uc){
+    uint32_t arch = uc_get_arch(uc);
+
+    if (arch == UC_ARCH_ARM) {
+        return UC_ARM_REG_PC;
+    }else if (arch == UC_ARCH_MIPS){
+        return UC_MIPS_REG_PC;
+    }
+
+    //invalid
+    return 0;
+}
+
+
+uint64_t get_pc_mark(uc_engine *uc){
+    uint32_t arch = uc_get_arch(uc);
+
+    if (arch == UC_ARCH_ARM) {
+        return 0x1;
+    }else if (arch == UC_ARCH_MIPS){
+        return 0;
+    }
+
+    // by default
+    return 0;
+}
+
+
+uint32_t get_current_sp(uc_engine *uc){
+    uint32_t arch = uc_get_arch(uc);
+
+    if (arch == UC_ARCH_ARM) {
+        return UC_ARM_REG_SP;
+    }else if (arch == UC_ARCH_MIPS){
+        return UC_MIPS_REG_SP;
+    }
+
+    //invalid
+    return 0;
+}
+
+
+const char* print_bb_info(uc_engine *uc, uint64_t address){
+    uint32_t lr;
+    uint32_t arch = uc_get_arch(uc);
+    
+    if (arch == UC_ARCH_ARM) {
+        uc_reg_read(uc, UC_ARM_REG_LR, &lr);
+        printf("Basic Block: addr= 0x%016lx (lr=0x%x)\n", address, lr);
+    }else if (arch == UC_ARCH_MIPS)
+    {
+        printf("Basic Block: addr= 0x%016lx\n", address);
+    }
+
+    fflush(stdout);
+}

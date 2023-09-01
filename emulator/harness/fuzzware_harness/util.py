@@ -4,13 +4,38 @@ import string
 import struct
 import sys
 from glob import glob as directory_glob
-
+import archinfo
+from unicorn import *
+from unicorn.mips_const import *
+from unicorn.arm_const import *
 import yaml
 
 from . import globs
 
 import logging
 logger = logging.getLogger("emulator")
+
+
+mips_registers = {
+        'zero': UC_MIPS_REG_0, 'at': UC_MIPS_REG_1, 'v0': UC_MIPS_REG_2,
+        'v1': UC_MIPS_REG_3, 'a0': UC_MIPS_REG_4, 'a1': UC_MIPS_REG_5,
+        'a2': UC_MIPS_REG_6, 'a3': UC_MIPS_REG_7, 't0': UC_MIPS_REG_8,
+        't1': UC_MIPS_REG_9, 't2': UC_MIPS_REG_10, 't3': UC_MIPS_REG_11,
+        't4': UC_MIPS_REG_12, 't5': UC_MIPS_REG_13, 't6': UC_MIPS_REG_14,
+        't7': UC_MIPS_REG_15, 's0': UC_MIPS_REG_16, 's1': UC_MIPS_REG_17,
+        's2': UC_MIPS_REG_18, 's3': UC_MIPS_REG_19, 's4': UC_MIPS_REG_20,
+        's5': UC_MIPS_REG_21, 's6': UC_MIPS_REG_22, 's7': UC_MIPS_REG_23,
+        't8': UC_MIPS_REG_24, 't9': UC_MIPS_REG_25, 'k0': UC_MIPS_REG_26,
+        'k1': UC_MIPS_REG_27, 'gp': UC_MIPS_REG_28, 'sp': UC_MIPS_REG_29,
+        'fp': UC_MIPS_REG_30, 'ra': UC_MIPS_REG_31, 'pc': UC_MIPS_REG_PC
+        }
+
+arm_registers = {'r0': UC_ARM_REG_R0, 'r1': UC_ARM_REG_R1, 'r2': UC_ARM_REG_R2,
+                         'r3': UC_ARM_REG_R3, 'r4': UC_ARM_REG_R4, 'r5': UC_ARM_REG_R5,
+                         'r6': UC_ARM_REG_R6, 'r7': UC_ARM_REG_R7, 'r8': UC_ARM_REG_R8,
+                         'r9': UC_ARM_REG_R9, 'r10': UC_ARM_REG_R10, 'r11': UC_ARM_REG_R11,
+                         'r12': UC_ARM_REG_R12, 'sp': UC_ARM_REG_SP, 'lr': UC_ARM_REG_LR,
+                         'pc': UC_ARM_REG_PC, 'cpsr': UC_ARM_REG_CPSR}
 
 def parse_address_value(symbols, value, enforce=True):
     if isinstance(value, int):
@@ -36,27 +61,21 @@ def parse_address_value(symbols, value, enforce=True):
             sys.exit(1)
         return None
 
-# TODO: make it arch-independent
+
 def parse_symbols(config):
     name_to_addr = {}
     addr_to_name = {}
-    # Create the symbol table
-    arch_mark = None
-    
-    # TODO: address aligning should be arch-specific
-    if config["arch"] == "mips32":
-        arch_mark = ~0
-    elif config["arch"] == "cortex-m":
-        arch_mark = 0xFFFFFFFE
 
+    # Create the symbol table
     if 'symbols' in config:
         try:
-            addr_to_name = {k&arch_mark: v for k, v in config['symbols'].items()}
-            name_to_addr = {v: k&arch_mark for k, v in config['symbols'].items()}
+            addr_to_name = {arm_clear_thumb_bit(config["arch"].lower(), k): v for k, v in config['symbols'].items()}
+            name_to_addr = {v: arm_clear_thumb_bit(config["arch"].lower(), k) for k, v in config['symbols'].items()}
         except TypeError as e:
             logger.error("Type error while parsing symbols. The symbols configuration was likely mis-formatted. The format is 0xdeadbeef: my_symbol_name. Raising original error.")
             raise e
     return name_to_addr, addr_to_name
+
 
 def closest_symbol(addr_to_name, addr, max_offset=0x1000):
     """
@@ -195,3 +214,116 @@ def load_config_deep(path):
     if config is None:
         return {}
     return resolve_config_includes(config, path)
+
+
+def create_unicorn_instance(arch, endianness = "little-endian"):
+    assert len(arch) != 0 and type(arch) == str
+    assert endianness == "little-endian" or endianness == "big-endian"  
+
+    if endianness == "little-endian":
+        uc_mode = UC_MODE_LITTLE_ENDIAN
+    else:
+        uc_mode = UC_MODE_BIG_ENDIAN
+
+    if arch.lower() == "mips32":
+        uc = Uc(UC_ARCH_MIPS, UC_MODE_MIPS32 | uc_mode)
+        uc.arch_name = "mips32"
+        uc.arch = archinfo.ArchMIPS32()
+        mips_enable_DSP(uc)
+    elif arch.lower() == "cortex-m":
+        uc = Uc(UC_ARCH_ARM, UC_MODE_THUMB | UC_MODE_MCLASS | uc_mode)
+        uc.arch_name = "cortex-m"
+        uc.arch = archinfo.ArchARMCortexM()
+
+
+def mips_enable_DSP(uc):
+    assert uc.arch_name == "mips32"
+
+    # enable DSP
+    dsp = uc.reg_read(UC_MIPS_REG_CP0_STATUS)
+    dsp |= (1 << 24)
+    uc.reg_write(UC_MIPS_REG_CP0_STATUS, dsp)
+
+
+def arm_clear_thumb_bit(arch_name, addr_val):
+    if arch_name != "cortex-m":
+        return addr_val
+
+    addr_val &= 0xFFFFFFFE
+
+    return addr_val
+
+
+def read_entry_point(config, entry_image_base, uc):
+    if "entry_point" in config:
+        return config["entry_point"]
+
+    if uc.arch_name != "cortex-m":
+        logger.error("For binaries of other archs, entry_point needs to be set up")
+        sys.exit(1)
+
+    if entry_image_base is None:
+        logger.error("Binary entry point missing! Make sure 'entry_point is in your configuration")
+        sys.exit(1)
+
+
+    entry_point = bytes2int(uc.mem_read(entry_image_base + 4, 4))
+
+    logger.debug(f"Recovered entry points: {entry_point:08x}")
+
+    return entry_point
+
+
+def read_initial_sp(config, entry_image_base, uc):
+    if "initial_sp" in config:
+        return config["initial_sp"]
+
+    if uc.arch_name != "cortex-m":
+        logger.error("For binaries of other archs, initial stack pointer needs to be set up")
+        sys.exit(1)
+
+    if entry_image_base is None:
+        logger.error("Binary entry point missing! Make sure 'entry_point is in your configuration")
+        sys.exit(1)
+    
+
+    initial_sp =  bytes2int(uc.mem_read(entry_image_base, 4))
+
+    logger.debug(f"Recovered initial_sp: {initial_sp:08x}")
+
+    return initial_sp
+
+
+def get_current_pc(uc):
+    if uc.arch_name == "mips32":
+      return UC_MIPS_REG_PC
+    elif uc.arch_name == "cortex-m":
+      return UC_ARM_REG_PC
+
+    raise ValueError
+
+
+def get_current_sp(uc):
+    if uc.arch_name == "mips32":
+      return UC_MIPS_REG_SP
+    elif uc.arch_name == "cortex-m":
+      return UC_ARM_REG_SP
+
+    raise ValueError
+
+
+def get_arch_const(uc):
+    if uc.arch_name == "mips32":
+      return mips_const
+    elif uc.arch_name == "cortex-m":
+      return arm_const
+
+    raise ValueError
+
+def get_arch_registers(uc):
+    if uc.arch_name == "mips32":
+      return mips_registers
+    elif uc.arch_name == "cortex-m":
+      return arm_registers
+
+    raise ValueError

@@ -4,12 +4,6 @@ import os
 import sys
 import logging
 
-#TODO: add MIPS-specific unicorn stuff
-from unicorn import *
-from unicorn.mips_const import *
-from unicorn.arm_const import *
-
-
 from . import globs, interrupt_triggers, native, timer, user_hooks
 from .gdbserver import GDBServer
 from .mmio_models import parse_mmio_model_config
@@ -17,8 +11,9 @@ from .sparkle import add_sparkles
 from .tracing import snapshot, trace_bbs, trace_ids, trace_mem
 from .user_hooks import (add_block_hook, add_func_hook,
                          maybe_register_global_block_hook)
-from .util import (bytes2int, load_config_deep, parse_address_value,
-                   parse_symbols, resolve_region_file_paths)
+# from .util import (bytes2int, load_config_deep, parse_address_value,
+#                    parse_symbols, resolve_region_file_paths)
+from .util import *
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger("emulator")
@@ -30,12 +25,9 @@ def unicorn_trace_syms(uc, address, size=0, user_data=None):
 
 def configure_unicorn(args):
     logger.info(f"Loading configuration in {str(args.config)}")
-    # TODO: 
-    # 1) adding architecture field in the config.yml, e.g., arch: "MIPS32" or arch: "ARM"
-    # 2) may need to add endianness in the config.yml
+
     config = load_config_deep(args.config)
 
-    # TODO: native.so requires code changes as well
     native_lib_path = os.path.dirname(os.path.realpath(__file__))+'/native/native_hooks.so'
     if not os.path.exists(native_lib_path):
         logger.error(f"Native library {str(native_lib_path)} does not exist! Exiting...")
@@ -59,42 +51,15 @@ def configure_unicorn(args):
         logger.error("Memory Configuration must be in config file")
         sys.exit(1)
 
-    #TODO: add MIPS-specific stuff, and determine endianness
-    # Create the unicorn
-    
-
     if not config.get("arch"):
-        logger.error("architecture must be setup in config file")
+        logger.error("Architecture must be setup in config file")
         sys.exit(1)
 
     if not config.get("endianness"):
-        logger.error("endianness must be setup in config file")
+        logger.error("Endianness must be setup in config file")
         sys.exit(1)
 
-
-    # TODO: replace prefix unicorn
-    if config["arch"] == "mips32":
-        if config["endianness"] == "little-endian":
-            uc = Uc(UC_ARCH_MIPS, UC_MODE_MIPS32 | UC_MODE_LITTLE_ENDIAN)
-        else:
-            uc = Uc(UC_ARCH_MIPS, UC_MODE_MIPS32 | UC_MODE_BIG_ENDIAN)  
-        uc.global_reg_pc = UC_MIPS_REG_PC
-        uc.global_reg_sp = UC_MIPS_REG_SP
-        uc.arch = "mips32"
-        uc.bit_cleaner = 0x0
-        # enable DSP
-        dsp = uc.reg_read(UC_MIPS_REG_CP0_STATUS)
-        dsp |= (1 << 24)
-        uc.reg_write(UC_MIPS_REG_CP0_STATUS, dsp)
-
-    elif config["arch"] == "cortex-m": # the default is little-endian
-        uc = Uc(UC_ARCH_ARM, UC_MODE_THUMB | UC_MODE_MCLASS)
-        uc.global_reg_pc = UC_ARM_REG_PC
-        uc.global_reg_sp = UC_ARM_REG_SP
-        uc.arch = "cortex-m"
-        uc.bit_cleaner = 0xFFFFFFFE
-
-    # uc = Uc(UC_ARCH_ARM, UC_MODE_THUMB | UC_MODE_MCLASS)
+    uc = create_unicorn_instance(config["arch"], config["endianness"])
 
     uc.symbols, uc.syms_by_addr = parse_symbols(config)
 
@@ -199,37 +164,17 @@ def configure_unicorn(args):
                 logger.info(f"Found entry_image_base: 0x{entry_image_base:08x}")
     globs.regions = regions
     
-    # TODO: for MIPS, need to read stack pointer and entry point from config.yml
-    # initial_sp: xxx
-    # entry_point: xxx
-    if not ('entry_point' in config and 'initial_sp' in config):
-        # If we don't have explicit configs, try recovering from IVT
-
-        if config["arch"] != "cortex-m":
-            logger.error("For binaries of other archs, entry_point and initial stack pointer need to be set up")
-            sys.exit(1)
-
-        if entry_image_base is None:
-            logger.error("Binary entry point missing! Make sure 'entry_point is in your configuration")
-            sys.exit(1)
-        
-        # Those cope snippets are Cortex-specific, since MIPS doesn't have this data organization.
-        config['initial_sp'] = bytes2int(uc.mem_read(entry_image_base, 4))
-        config['entry_point'] = bytes2int(uc.mem_read(entry_image_base + 4, 4))
-
-        logger.debug(f"Recovered entry points: {config['entry_point']:08x}, initial_sp: {config['initial_sp']:08x}")
-
-    # TODO: add MIPS-specific stuff
+    # for MIPS, need to read stack pointer and entry point from config.yml
+    config['initial_sp'] = read_initial_sp(config, entry_image_base, uc)
+    config['entry_point'] = read_entry_point(config, entry_image_base, uc)
+    
     # Set the program entry point and stack pointer
     # uc.reg_write(UC_ARM_REG_PC, config['entry_point'])
-    uc.reg_write(uc.global_reg_pc, config['entry_point'])
+    uc.reg_write(get_current_pc(uc), config['entry_point'])
 
     # The stack pointer is aligned during CPU reset
     # uc.reg_write(UC_ARM_REG_SP, config['initial_sp'] & 0xfffffffc)
-    if config["arch"] == "mips32":
-      uc.reg_write(uc.global_reg_sp, config['initial_sp'])
-    elif config["arch"] == "cortex-m":
-      uc.reg_write(uc.global_reg_sp, config['initial_sp'] & 0xfffffffc)
+    uc.reg_write(get_current_sp(uc), config['initial_sp'] & 0xfffffffc)
 
     mmio_ranges = [(start, start + size) for rname, (start, size, prot) in regions.items() if rname.lower().startswith('mmio')]
     if not mmio_ranges:
@@ -284,7 +229,6 @@ def configure_unicorn(args):
     # MMIO modeling and listener setup
     parse_mmio_model_config(uc, config)
 
-    # TODO: remove ARM-specific, but not a priority yet since haven't seen the usage of this part
     # Step 3: Set the handlers
     if 'handlers' in config and config['handlers']:
         for fname, handler_desc in config['handlers'].items():
@@ -296,7 +240,8 @@ def configure_unicorn(args):
                 addr_val = handler_desc['addr']
                 # This handler is always at a fixed address
                 if isinstance(addr_val, int):
-                    addr_val &= uc.bit_cleaner # Clear thumb bit in case of cortex-M
+                    addr_val = arm_clear_thumb_bit(uc.arch_name, addr_val)
+                    # addr_val &= uc.bit_cleaner # Clear thumb bit in case of cortex-M
                     uc.syms_by_addr[addr_val] = fname
             else:
                 addr_val = fname
@@ -340,7 +285,6 @@ def configure_unicorn(args):
     else:
         logger.info("No function hooks found. Registering no native basic block hook for that")
 
-    # TODO: remove ARM-specific breakpoint handling
     uc = add_sparkles(uc, args)
 
     if args.debug and args.trace_funcs:
@@ -440,7 +384,6 @@ def main():
     if any(debug_flags):
         args.debug = True
 
-    # TODO: refactor arch-specific code snippets
     uc = configure_unicorn(args)
     globs.uc = uc
 
@@ -453,7 +396,6 @@ def main():
     gc.collect()
     # gc.set_threshold(0, 0, 0)
 
-    # TODO: native emulator requires a lot of changes on arch-specifc code snippets
     # We do everything in native code from here to avoid any python overhead after configuration is done
     native.emulate(uc, args.input_file, args.prefix_input_path)
 

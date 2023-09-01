@@ -1,5 +1,5 @@
 #include "native_tracing.h"
-
+#include "util.h"
 // 0. Constants
 #define DEFAULT_INITIAL_MMIO_ACCESS_CONTEXT_TRACE_SET_CAPACITY 0x10000
 #define DEFAULT_INITIAL_PC_TRACE_SET_CAPACITY 0x10000
@@ -47,7 +47,7 @@ void hook_mem_trace_mmio_access(uc_engine *uc, uc_mem_type type,
     uint32_t pc;
     int kh_res;
     uint64_t context;
-    uc_reg_read(uc, UC_ARM_REG_PC, &pc);
+    uc_reg_read(uc, get_current_pc(uc), &pc);
     context = ENCODE_MMIO_ACCESS_CONTEXT(pc, addr);
 
     if(type == UC_MEM_WRITE) {
