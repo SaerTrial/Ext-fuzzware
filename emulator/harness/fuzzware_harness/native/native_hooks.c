@@ -534,7 +534,7 @@ void linear_mmio_model_handler(uc_engine *uc, uc_mem_type type, uint64_t addr, i
     uint32_t arch_pc = get_current_pc(uc);
     uint32_t pc;
 
-    uc_reg_read(uc, reg_pc, &pc);
+    uc_reg_read(uc, arch_pc, &pc);
     // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
     printf("[0x%08x] Native Linear MMIO handler: [0x%08lx] = [0x%x]\n", pc, addr, model_state->val); fflush(stdout);
     #endif
