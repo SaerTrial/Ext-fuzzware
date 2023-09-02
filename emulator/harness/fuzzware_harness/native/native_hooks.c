@@ -405,7 +405,6 @@ void hook_mmio_access(uc_engine *uc, uc_mem_type type,
 
     #ifdef DEBUG
     printf("Serving %d byte(s) fuzz for mmio access to 0x%08lx, pc: 0x%08x, rem bytes: %ld\n", size, addr, pc, fuzz_size-fuzz_cursor); fflush(stdout);
-    printf("[debugging] fuzz_size: %ld, fuzz_cursor: %ld\n", fuzz_size, fuzz_cursor); fflush(stdout);
     #endif
 
     uint64_t val = 0;
