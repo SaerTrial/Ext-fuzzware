@@ -10,7 +10,7 @@ from socket import AF_INET, SO_REUSEADDR, SOCK_STREAM, SOL_SOCKET
 from threading import Event, Thread
 from time import sleep
 import ast
-from util import *
+from .util import *
 
 
 logger = logging.getLogger("emulator")

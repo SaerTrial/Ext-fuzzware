@@ -234,6 +234,8 @@ def create_unicorn_instance(arch, endianness = "little-endian"):
         uc = Uc(UC_ARCH_ARM, UC_MODE_THUMB | UC_MODE_MCLASS | uc_mode)
         uc.arch_name = "cortex-m"
         uc.arch = archinfo.ArchARMCortexM()
+    
+    return uc
 
 
 def mips_enable_DSP(uc):
