@@ -117,7 +117,7 @@ uint32_t get_current_sp(uc_engine *uc){
 }
 
 
-const char* print_bb_info(uc_engine *uc, uint64_t address){
+void print_bb_info(uc_engine *uc, uint64_t address){
     uint32_t lr;
     uint32_t arch = uc_get_arch(uc);
     
