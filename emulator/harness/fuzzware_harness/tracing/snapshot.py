@@ -11,39 +11,38 @@ uc_reg_consts = {"cortex-m": [UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_AR
             UC_ARM_REG_R5, UC_ARM_REG_R6, UC_ARM_REG_R7, UC_ARM_REG_R8, UC_ARM_REG_R9,
             UC_ARM_REG_R10, UC_ARM_REG_R11, UC_ARM_REG_R12, UC_ARM_REG_LR, UC_ARM_REG_PC,
             UC_ARM_REG_SP, UC_ARM_REG_XPSR],
-                "mips32": [UC_MIPS_REG_PC,
-            UC_MIPS_REG_0,
-            UC_MIPS_REG_1,
-            UC_MIPS_REG_2,
-            UC_MIPS_REG_3,
-            UC_MIPS_REG_4,
-            UC_MIPS_REG_5,
-            UC_MIPS_REG_6,
-            UC_MIPS_REG_7,
-            UC_MIPS_REG_8,
-            UC_MIPS_REG_9,
-            UC_MIPS_REG_10,
-            UC_MIPS_REG_11,
-            UC_MIPS_REG_12,
-            UC_MIPS_REG_13,
-            UC_MIPS_REG_14,
-            UC_MIPS_REG_15,
-            UC_MIPS_REG_16,
-            UC_MIPS_REG_17,
-            UC_MIPS_REG_18,
-            UC_MIPS_REG_19,
-            UC_MIPS_REG_20,
-            UC_MIPS_REG_21,
-            UC_MIPS_REG_22,
-            UC_MIPS_REG_23,
-            UC_MIPS_REG_24,
-            UC_MIPS_REG_25,
-            UC_MIPS_REG_26,
-            UC_MIPS_REG_27,
-            UC_MIPS_REG_28,
-            UC_MIPS_REG_29,
-            UC_MIPS_REG_30,
-            UC_MIPS_REG_31]
+                "mips32": [UC_MIPS_REG_ZERO,
+    UC_MIPS_REG_AT,
+    UC_MIPS_REG_V0,
+    UC_MIPS_REG_V1,
+    UC_MIPS_REG_A0,
+    UC_MIPS_REG_A1,
+    UC_MIPS_REG_A2,
+    UC_MIPS_REG_A3,
+    UC_MIPS_REG_T0,
+    UC_MIPS_REG_T1,
+    UC_MIPS_REG_T2,
+    UC_MIPS_REG_T3,
+    UC_MIPS_REG_T4,
+    UC_MIPS_REG_T5,
+    UC_MIPS_REG_T6,
+    UC_MIPS_REG_T7,
+    UC_MIPS_REG_S0,
+    UC_MIPS_REG_S1,
+    UC_MIPS_REG_S2,
+    UC_MIPS_REG_S3,
+    UC_MIPS_REG_S4,
+    UC_MIPS_REG_S5,
+    UC_MIPS_REG_S6,
+    UC_MIPS_REG_S7,
+    UC_MIPS_REG_T8,
+    UC_MIPS_REG_T9,
+    UC_MIPS_REG_K0,
+    UC_MIPS_REG_K1,
+    UC_MIPS_REG_GP,
+    UC_MIPS_REG_SP,
+    UC_MIPS_REG_RA,
+    UC_MIPS_REG_PC]
         }
 
 dump_template = {"cortex-m": """r0=0x{:x}
@@ -64,40 +63,38 @@ pc=0x{:x}
 sp=0x{:x}
 xpsr=0x{:x}
 """,
-"mips32": """
+"mips32": """zero=0x{:x}
+at=0x{:x}
+v0=0x{:x}
+v1=0x{:x}
+a0=0x{:x}
+a1=0x{:x}
+a2=0x{:x}
+a3=0x{:x}
+t0=0x{:x}
+t1=0x{:x}
+t2=0x{:x}
+t3=0x{:x}
+t4=0x{:x}
+t5=0x{:x}
+t6=0x{:x}
+t7=0x{:x}
+s0=0x{:x}
+s1=0x{:x}
+s2=0x{:x}
+s3=0x{:x}
+s4=0x{:x}
+s5=0x{:x}
+s6=0x{:x}
+s7=0x{:x}
+t8=0x{:x}
+t9=0x{:x}
+k0=0x{:x}
+k1=0x{:x}
+gp=0x{:x}
+sp=0x{:x}
+ra=0x{:x}
 pc=0x{:x}
-r0=0x{:x}
-r1=0x{:x}
-r2=0x{:x}
-r3=0x{:x}
-r4=0x{:x}
-r5=0x{:x}
-r6=0x{:x}
-r7=0x{:x}
-r8=0x{:x}
-r9=0x{:x}
-r10=0x{:x}
-r11=0x{:x}
-r12=0x{:x}
-r13=0x{:x}
-r14=0x{:x}
-r15=0x{:x}
-r16=0x{:x}
-r17=0x{:x}
-r18=0x{:x}
-r19=0x{:x}
-r20=0x{:x}
-r21=0x{:x}
-r22=0x{:x}
-r23=0x{:x}
-r24=0x{:x}
-r25=0x{:x}
-r26=0x{:x}
-r27=0x{:x}
-r28=0x{:x}
-r29=0x{:x}
-r30=0x{:x}
-r31=0x{:x}
 """
 }
 
@@ -241,7 +238,7 @@ def mem_hook_dump_state_after_mmio_read(uc, access, address, size, value, user_d
 
         state_filename = "{}/{}mmio_access_state_pc_{:08x}_addr_{:08x}_{}".format(mmio_states_out_dir, mmio_states_name_prefix, pc, address, globs.input_file_name)
         logger.debug(f"Dumping to {state_filename}")
-        dump_state(state_filename, latest_regs, content_map)
+        dump_state(uc, state_filename, latest_regs, content_map)
 
         bbtrace_filepath = "{}/{}mmio_access_bbtrace_pc_{:08x}_addr_{:08x}_{}".format(mmio_states_out_dir, mmio_states_name_prefix, pc, address, globs.input_file_name)
         dump_current_bb_trace(uc, bbtrace_filepath, num_latest_entries=NUM_BB_LINES_FOR_MMIO_ACCESS_STATE_TRACE)

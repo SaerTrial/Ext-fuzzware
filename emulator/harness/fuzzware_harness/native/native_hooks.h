@@ -6,7 +6,7 @@
 #include "uc_snapshot.h"
 
 #define DEBUG
-//#define DEBUG_STATE_RESTORE
+#define DEBUG_STATE_RESTORE
 //#define DEBUG_SYSTICK
 //#define DEBUG_TIMER
 //#define DEBUG_INJECT_TIMER

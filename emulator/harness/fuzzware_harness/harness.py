@@ -152,8 +152,6 @@ def configure_unicorn(args):
             with open(f, 'rb') as fp:
                 fp.seek(file_offset)
                 region_data = fp.read(file_size)
-                logger.info(f"Loading {len(region_data):08x} bytes at {start + load_offset:08x}")
-                logger.debug(f"the first 8 bytes: {region_data[0:8].hex()}")
                 uc.mem_write(start + load_offset, region_data)
 
             if region.get('is_entry') == True:

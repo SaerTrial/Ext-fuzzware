@@ -854,6 +854,15 @@ static uc_err mem_map(uc_engine *uc, uint64_t address, size_t size, uint32_t per
     if (block == NULL)
         return UC_ERR_NOMEM;
 
+    // fix address redirection in mips
+    block->orig_addr = address;
+    block->orig_end = address + (block->end-block->addr);
+
+    if (uc->mem_redirect)
+    {
+        address = uc->mem_redirect(address);
+    }
+
     if ((uc->mapped_block_count & (MEM_BLOCK_INCR - 1)) == 0)
     { //time to grow
         regions = (MemoryRegion **)g_realloc(uc->mapped_blocks,
@@ -906,37 +915,39 @@ UNICORN_EXPORT
 uc_err uc_mem_map(uc_engine *uc, uint64_t address, size_t size, uint32_t perms)
 {
     uc_err res;
+    uint64_t redirected_address = address; 
 
     if (uc->mem_redirect)
     {
-        address = uc->mem_redirect(address);
+        redirected_address = uc->mem_redirect(address);
     }
 
-    res = mem_map_check(uc, address, size, perms);
+    res = mem_map_check(uc, redirected_address, size, perms);
     if (res)
         return res;
 
-    return mem_map(uc, address, size, perms, uc->memory_map(uc, address, size, perms));
+    return mem_map(uc, address, size, perms, uc->memory_map(uc, redirected_address, size, perms));
 }
 
 UNICORN_EXPORT
 uc_err uc_mem_map_ptr(uc_engine *uc, uint64_t address, size_t size, uint32_t perms, void *ptr)
 {
     uc_err res;
+    uint64_t redirected_address = address; 
 
     if (ptr == NULL)
         return UC_ERR_ARG;
 
     if (uc->mem_redirect)
     {
-        address = uc->mem_redirect(address);
+        redirected_address = uc->mem_redirect(address);
     }
 
-    res = mem_map_check(uc, address, size, perms);
+    res = mem_map_check(uc, redirected_address, size, perms);
     if (res)
         return res;
 
-    return mem_map(uc, address, size, UC_PROT_ALL, uc->memory_map_ptr(uc, address, size, perms, ptr));
+    return mem_map(uc, address, size, UC_PROT_ALL, uc->memory_map_ptr(uc, redirected_address, size, perms, ptr));
 }
 
 // Create a backup copy of the indicated MemoryRegion.
@@ -1472,8 +1483,8 @@ uint32_t uc_mem_regions(uc_engine *uc, uc_mem_region **regions, uint32_t *count)
 
     for (i = 0; i < *count; i++)
     {
-        r[i].begin = uc->mapped_blocks[i]->addr;
-        r[i].end = uc->mapped_blocks[i]->end - 1;
+        r[i].begin = uc->mapped_blocks[i]->orig_addr;
+        r[i].end = uc->mapped_blocks[i]->orig_end - 1;
         r[i].perms = uc->mapped_blocks[i]->perms;
     }
 

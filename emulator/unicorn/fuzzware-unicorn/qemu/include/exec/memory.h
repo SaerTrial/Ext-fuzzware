@@ -90,6 +90,8 @@ struct MemoryRegion {
     MemoryRegion *container;
     Int128 size;
     hwaddr addr;
+    uint64_t orig_addr;
+    uint64_t orig_end;
     void (*destructor)(MemoryRegion *mr);
     ram_addr_t ram_addr;
     uint64_t align;

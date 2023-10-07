@@ -20,5 +20,5 @@ uint32_t get_current_pc(uc_engine *uc);
 uint64_t get_pc_mark(uc_engine *uc);
 uint32_t get_current_sp(uc_engine *uc);
 void print_bb_info(uc_engine *uc, uint64_t address);
-
+void print_regions(uc_engine *uc);
 #endif

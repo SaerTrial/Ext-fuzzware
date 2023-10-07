@@ -1,7 +1,7 @@
 #include "uc_snapshot.h"
 #include "state_snapshotting.h"
 #include <string.h>
-
+#include "util.h"
 /*
  * Snapshotting of the unicorn engine state (registers and memory).
  *
@@ -221,9 +221,10 @@ bool hook_invalid_write_on_demand_page_restore_handle(uc_engine *uc, uc_mem_type
     uint64_t address, int size, int64_t value, void *user_data) {
     uint64_t aligned = address & (~(PAGE_SIZE-1));
     uint32_t old_perms = 0;
-
+    uint32_t pc;
     #ifdef DEBUG_STATE_RESTORE
-    printf("[hook_invalid_write_on_demand_page_restore_handle] addr: 0x%lx, aligned: 0x%lx\n", address, aligned);
+    uc_reg_read(uc, get_current_pc(uc), &pc);
+    printf("[hook_invalid_write_on_demand_page_restore_handle] pc: 0x%x, addr: 0x%lx, aligned: 0x%lx, data=0x%016lx\n", pc, address, aligned, value);
     fflush(stdout);
     #endif
 
@@ -246,12 +247,14 @@ bool hook_invalid_write_on_demand_page_restore_handle(uc_engine *uc, uc_mem_type
                 printf("[ERROR] uc_mem_protect failed for aligned=%08lx, perms=%x (err code: %d, msg: %s)\n", aligned, old_perms, res, uc_strerror(res)); fflush(stdout);
                 exit(-1);
             }
+
             if (uc_mem_write(uc, address, &value, size) != UC_ERR_OK) {
                 printf("[ERROR] uc_mem_write failed while trying to add page %#010lx. Write addr: %#010lx, size: %d, value: %08lx\n", aligned, address, size, value);
                 exit(-1);
             }
 
             #ifdef DEBUG_STATE_RESTORE
+
             puts("[hook_invalid_write_on_demand_page_restore_handle] successfully handled");
             fflush(stdout);
             #endif

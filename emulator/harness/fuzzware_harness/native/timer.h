@@ -6,7 +6,6 @@ typedef void (*timer_cb)(uc_engine *uc, uint32_t id, void *user_data);
 
 #define MAX_TIMERS 32
 #define TIMER_IRQ_NOT_USED 0
-#define DEBUG_TIMER
 
 struct Timer {
     struct Timer *next;

@@ -204,7 +204,7 @@ uc_err add_debug_hooks(uc_engine *uc) {
 bool hook_debug_mem_invalid_access(uc_engine *uc, uc_mem_type type,
         uint64_t address, int size, int64_t value, void *user_data) {
     uint64_t pc = 0;
-    int arch_pc = get_current_pc(uc);
+    uint32_t arch_pc = get_current_pc(uc);
     
     uc_reg_read(uc, arch_pc, &pc);
     // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
@@ -854,21 +854,27 @@ static void *init_bitmap(uc_engine *uc) {
     return bitmap;
 }
 
+
+void hook_code(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
+{
+    printf(">>> Tracing instruction at 0x%"PRIx64 ", instruction size = 0x%x\n", address, size);
+}
+
 static inline int run_single(uc_engine *uc) {
     int status;
     uint64_t pc = 0;
     int sig = -1;
-
+    uc_hook tmp;
     uint32_t arch_pc = get_current_pc(uc);
     uint32_t pc_mark = get_pc_mark(uc);
-
+    uc_hook_add(uc, &tmp, UC_HOOK_CODE, hook_code, NULL, 1, 0);
 
     uc_reg_read(uc, arch_pc, &pc);
 
     // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
 
     // status = uc_emu_start(uc, pc | 1, 0, 0, 0);
-
+    
     status = uc_emu_start(uc, pc | pc_mark, 0, 0, 0);
 
     if(custom_exit_reason != UC_ERR_OK) {
@@ -877,7 +883,9 @@ static inline int run_single(uc_engine *uc) {
 
     if (status != UC_ERR_OK) {
         if(do_print_exit_info) {
-            printf("Execution failed with error code: %d -> %s\n", status, uc_strerror(status));
+            uc_reg_read(uc, arch_pc, &pc);
+            printf("Execution failed with error code: %d -> %s, pc: 0x%lx\n", status, uc_strerror(status), pc);
+            print_regions(uc);
             print_state(uc);
         }
         sig = uc_err_to_sig(status);
@@ -987,6 +995,8 @@ uc_err init(uc_engine *uc, exit_hook_t p_exit_hook, int p_num_mmio_regions, uint
     // TODO: assumes shared endianness
     uc_mem_write(uc, CPUID_ADDR, &CPUID_CORTEX_M4, sizeof(CPUID_CORTEX_M4));
 
+    freopen("/home/user/all_logs.txt", "a+", stdout);
+
     if(p_exit_hook) {
         add_exit_hook(p_exit_hook);
     }
@@ -1048,6 +1058,14 @@ uc_err init(uc_engine *uc, exit_hook_t p_exit_hook, int p_num_mmio_regions, uint
         }
     }
 
+    uint32_t num_regions;
+    uc_mem_region *regions;
+    uc_mem_regions(uc, &regions, &num_regions);
+    printf("-----------------mem_regions----------------\n");
+    for(int i=0; i < num_regions; ++i){
+        printf("region_start:0x%lx, region_end:0x%lx, perms: %x\n", regions[i].begin, regions[i].end, regions[i].perms);
+    }
+
     // Snapshotting
     init_interrupt_triggering(uc);
 
@@ -1073,8 +1091,8 @@ uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path)
 {
     uint64_t pc = 0;
     fflush(stdout);
-   
-    u_int32_t arch_pc = get_current_pc(uc);
+    freopen("/home/user/all_logs.txt", "a+", stdout);
+    uint32_t arch_pc = get_current_pc(uc);
     uint64_t pc_mark = get_pc_mark(uc);
 
 
@@ -1226,7 +1244,7 @@ uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path)
     } else {
         puts("Running without a fork server");
         duplicate_exit = false;
-
+       // trigger_snapshotting(uc);
         // Not running under fork server
         int sig = run_single(uc);
 

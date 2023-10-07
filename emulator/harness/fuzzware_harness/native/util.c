@@ -3,6 +3,10 @@
 #include <string.h>
 #include <unicorn/unicorn.h>
 
+
+uint32_t get_current_sp(uc_engine *uc);
+
+
 int get_instruction_size(uint64_t insn, bool is_thumb) {
     if(is_thumb) {
         switch(insn & 0xf800) {
@@ -39,7 +43,7 @@ void print_state(uc_engine *uc) {
     }
     puts("\n==== UC Stack state ====");
     uint32_t sp;
-    uc_reg_read(uc, UC_ARM_REG_SP, &sp);
+    uc_reg_read(uc, get_current_sp(uc), &sp);
     for (int i = -4; i < 16; ++i)
     {
         uint32_t val;
@@ -130,4 +134,15 @@ void print_bb_info(uc_engine *uc, uint64_t address){
     }
 
     fflush(stdout);
+}
+
+
+void print_regions(uc_engine *uc){
+    uint32_t num_regions;
+    uc_mem_region *regions;
+    uc_mem_regions(uc, &regions, &num_regions);
+    printf("-----------------mem_regions----------------\n");
+    for(int i=0; i < num_regions; ++i){
+        printf("region_start:0x%lx, region_end:0x%lx, perms: %x\n", regions[i].begin, regions[i].end, regions[i].perms);
+    }
 }

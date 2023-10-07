@@ -299,7 +299,7 @@ WORD_TYPE helper_le_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
 
     /* Adjust the given return address.  */
     retaddr -= GETPC_ADJ;
-
+    tlb_addr = env->tlb_table[mmu_idx][index].ADDR_READ;
     /* If the TLB entry is for a different page, reload and try again.  */
     /* If the TLB entry addend is invalidated by any callbacks (perhaps due to
        a TLB flush), reload and try again.  */
@@ -549,7 +549,7 @@ WORD_TYPE helper_be_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
 
     /* Adjust the given return address.  */
     retaddr -= GETPC_ADJ;
-
+    tlb_addr = env->tlb_table[mmu_idx][index].ADDR_READ;
     /* If the TLB entry is for a different page, reload and try again.  */
     /* If the TLB entry addend is invalidated by any callbacks (perhaps due to
        a TLB flush), reload and try again.  */
@@ -794,7 +794,7 @@ void helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
 
     /* Adjust the given return address.  */
     retaddr -= GETPC_ADJ;
-
+    tlb_addr = env->tlb_table[mmu_idx][index].addr_write;
     /* If the TLB entry is for a different page, reload and try again.  */
     if ((addr & TARGET_PAGE_MASK)
         != (tlb_addr & (TARGET_PAGE_MASK | TLB_INVALID_MASK))) {
@@ -964,7 +964,7 @@ void helper_be_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
 
     /* Adjust the given return address.  */
     retaddr -= GETPC_ADJ;
-
+    tlb_addr = env->tlb_table[mmu_idx][index].addr_write;
     /* If the TLB entry is for a different page, reload and try again.  */
     if ((addr & TARGET_PAGE_MASK)
         != (tlb_addr & (TARGET_PAGE_MASK | TLB_INVALID_MASK))) {
