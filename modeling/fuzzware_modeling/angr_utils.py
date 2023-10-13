@@ -27,8 +27,10 @@ def has_conditional_statements(state, unconditionals_cache=None):
     for bbl_addr in state.history.bbl_addrs:
         if unconditionals_cache is not None and bbl_addr in unconditionals_cache:
             continue
-
-        block = state.project.factory.block(bbl_addr | 1).vex
+        
+        # TODO: arch-specific
+        block = state.project.factory.block(bbl_addr, thumb=True).vex
+        # block = state.project.factory.block(bbl_addr | 1).vex
         if list(block.exit_statements):
             return True
 
@@ -88,6 +90,7 @@ def state_contains_tracked_mmio_path_constraints(state):
             constraint = action.constraint
             if contains_var(constraint, var):
                 # If the variable is in the constraints, make sure it is not an instruction signal handler
+                # TODO: arch-specific
                 block = state.project.factory.block(action.ins_addr, num_inst=1, thumb=True)
                 if [ jk for jk in block.vex.constant_jump_targets_and_jumpkinds.values() if jk.startswith("Ijk_Sig") ]:
                     l.info("Skipping signal related path constraint on mmio access")

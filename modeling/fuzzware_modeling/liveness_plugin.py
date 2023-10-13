@@ -46,6 +46,8 @@ class LivenessPlugin(angr.SimStatePlugin):
 
         # The base snapshot is a singleton for each restored state
         self.base_snapshot = base_snapshot
+        self.isr_start = self.base_snapshot.isr_addr_start
+        self.isr_end = self.base_snapshot.isr_addr_end
         self.returned = returned
         self.all_vars_dead = all_vars_dead
 
@@ -128,8 +130,9 @@ class LivenessPlugin(angr.SimStatePlugin):
             l.warning("[{:x}] Returned from top level function".format(state.addr))
             self.returned = True
             self._remove_scratch_reg_refs()
-            if NVIC_RET_START <= state.addr <= NVIC_RET_START | 0xfff:
+            if self.isr_start <= state.addr <= self.isr_end:
                 l.critical("returning from ISR")
+             
 
     def on_before_reg_write(self, write_expr, reg_write_offset, write_len):
         """

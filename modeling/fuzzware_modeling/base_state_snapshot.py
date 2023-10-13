@@ -9,7 +9,7 @@ from .arch_specific.arm_thumb_regs import state_snapshot_reg_list, translate_reg
 from .arch_specific.arm_cortexm_mmio_ranges import DEFAULT_MMIO_RANGES, ARM_CORTEXM_MMIO_START, ARM_CORTEXM_MMIO_END
 from .angr_utils import contains_var
 from .fuzzware_utils.config import load_traces_for_state, get_mmio_ranges
-
+import arch_specific
 l = logging.getLogger("BASESTATE")
 
 reg_regex = re.compile(r"^[^=]{2,4}=0x([0-9a-f]+)$")
@@ -41,7 +41,7 @@ class BaseStateSnapshot:
     initial_pc: int
     regvars_by_name: dict
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, mmio_and_isr_range):
         self.init_reg_constraints = []
         self.init_reg_bitvecs = []
         self.init_reg_bitvecvals = []
@@ -60,8 +60,10 @@ class BaseStateSnapshot:
         self.mmio_addr = None
         self.mmio_access_size = None
 
-        self.mmio_ranges = list(DEFAULT_MMIO_RANGES)
-
+        # self.mmio_ranges = list(DEFAULT_MMIO_RANGES)
+        self.mmio_ranges = list(mmio_and_isr_range[0])
+        self.isr_addr_start, self.isr_addr_end = mmio_and_isr_range[2]
+    
         configured_mmio_ranges = []
         if cfg:
             configured_mmio_ranges = get_mmio_ranges(cfg)
@@ -69,7 +71,7 @@ class BaseStateSnapshot:
                 self.mmio_ranges.append((start, end))
 
         if not configured_mmio_ranges:
-            self.mmio_ranges.append((ARM_CORTEXM_MMIO_START, ARM_CORTEXM_MMIO_END))
+            self.mmio_ranges.append(mmio_and_isr_range[1])
 
     @property
     def all_initial_bitvecs(self):
@@ -126,14 +128,20 @@ class BaseStateSnapshot:
 
     @classmethod
     def from_state_file(self, statefile, cfg):
-        base_snapshot = BaseStateSnapshot(cfg)
-        base_snapshot.bb_trace, base_snapshot.ram_trace, base_snapshot.mmio_trace = load_traces_for_state(statefile)
+        # base_snapshot = BaseStateSnapshot(cfg)
+        specific_arch = None
+        bb_trace, ram_trace, mmio_trace = load_traces_for_state(statefile)
+
 
         l.info("Loading state file: {}".format(statefile))
         with open(statefile, "r") as state_file:
             regs = {}
 
-            for name in state_snapshot_reg_list:
+            arch_line = state_file.readline()
+            endness_line = state_file.readline()
+            specific_arch = arch_specific.identify_arch_from_statefile(arch_line, endness_line)
+
+            for name in specific_arch.state_snapshot_reg_list:
                 line = state_file.readline()
                 l.debug("Looking at line: '{}'".format(line.rstrip()))
                 val = int(reg_regex.match(line).group(1), 16)
@@ -147,12 +155,15 @@ class BaseStateSnapshot:
 
             sio = BytesIO(line.encode()+state_file.read().encode())
 
-        project = angr.Project(sio, arch="ARMCortexM", main_opts={'backend': 'hex', 'entry_point': regs[REG_NAME_PC]|1})
+        base_snapshot = BaseStateSnapshot(cfg, specific_arch.mmio_and_isr_range)
+        base_snapshot.bb_trace, base_snapshot.ram_trace, base_snapshot.mmio_trace = (bb_trace, ram_trace, mmio_trace)
+
+        project = angr.Project(sio, arch=specific_arch.arch, main_opts={'backend': 'hex', 'entry_point': specific_arch.read_pc(regs, thumb_mode=True)})
 
         # We need the following option in order for CBZ to not screw us over
         project.factory.default_engine.default_strict_block_end = True
 
-        initial_state = project.factory.blank_state(addr=regs[REG_NAME_PC]|1)
+        initial_state = project.factory.blank_state(addr=specific_arch.read_pc(regs, thumb_mode=True))
 
         arm_thumb_quirks.add_special_initstate_reg_vals(initial_state, regs)
 
@@ -160,8 +171,8 @@ class BaseStateSnapshot:
         initial_sp = None
         for name, val in regs.items():
             if name == REG_NAME_PC:
-                self.initial_pc = val
-                val |= 1
+                self.initial_pc = specific_arch.read_pc(regs, thumb_mode=True)
+                # val |= 1
                 continue
 
             if leave_reg_untainted(name):
