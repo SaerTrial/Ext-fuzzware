@@ -480,6 +480,7 @@ struct CPUMIPSState {
     target_ulong CP0_XContext;
     int32_t CP0_Framemask;
     int32_t CP0_Debug;
+#define CP0C7_WII  31
 #define CP0DB_DBD  31
 #define CP0DB_DM   30
 #define CP0DB_LSNM 28
