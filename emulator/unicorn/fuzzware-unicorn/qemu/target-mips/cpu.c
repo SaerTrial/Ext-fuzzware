@@ -328,7 +328,7 @@ MIPSCPU *cpu_mips_init(struct uc_struct *uc, const char *cpu_model)
         cpu_model = "R4000";
 #else
         // cpu_model = "24Kf";
-        cpu_model = "74Kf";
+        cpu_model = "M14Kc";
 #endif
     }
 
