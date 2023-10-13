@@ -6,12 +6,12 @@ l = logging.getLogger("arch_specific")
 
 
 class ArchSpecifics:
-    def __init__(self, arch_name, endness):
+    def __init__(self, endness):
         self.state_snapshot_reg_list = []
         self.scope_reg_names = ()
         self.regular_register_names = ()
         self.newly_added_constraints_reg_names = ()
-        self.arch = None
+        self._arch = None
 
     def return_reg(self, state): 
         pass
@@ -27,7 +27,7 @@ class ArchSpecifics:
 
     @property
     def arch(self):
-        return self.arch
+        return self._arch
 
     @property
     def quirks(self):

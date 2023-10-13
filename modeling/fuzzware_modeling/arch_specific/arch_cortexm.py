@@ -209,9 +209,9 @@ class ArchSpecificsARMCortexM(ArchSpecifics):
         self.newly_added_constraints_reg_names = ('r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r10', 'r11', 'r12', 'lr')
 
         if endness == "LE":
-            self.arch = archinfo.ArchARMCortexM(endness='Iend_LE')
+            self._arch = archinfo.ArchARMCortexM(endness='Iend_LE')
         else:
-            self.arch = archinfo.ArchARMCortexM(endness='Iend_BE')
+            self._arch = archinfo.ArchARMCortexM(endness='Iend_BE')
 
     def return_reg(self):
         if self.state is None:

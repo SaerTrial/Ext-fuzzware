@@ -9,7 +9,7 @@ from .arch_specific.arm_thumb_regs import state_snapshot_reg_list, translate_reg
 from .arch_specific.arm_cortexm_mmio_ranges import DEFAULT_MMIO_RANGES, ARM_CORTEXM_MMIO_START, ARM_CORTEXM_MMIO_END
 from .angr_utils import contains_var
 from .fuzzware_utils.config import load_traces_for_state, get_mmio_ranges
-import arch_specific
+from .arch_specific import identify_arch_from_statefile
 l = logging.getLogger("BASESTATE")
 
 reg_regex = re.compile(r"^[^=]{2,4}=0x([0-9a-f]+)$")
@@ -139,7 +139,7 @@ class BaseStateSnapshot:
 
             arch_line = state_file.readline()
             endness_line = state_file.readline()
-            specific_arch = arch_specific.identify_arch_from_statefile(arch_line, endness_line)
+            specific_arch = identify_arch_from_statefile(arch_line, endness_line)
 
             for name in specific_arch.state_snapshot_reg_list:
                 line = state_file.readline()
@@ -155,7 +155,7 @@ class BaseStateSnapshot:
 
             sio = BytesIO(line.encode()+state_file.read().encode())
 
-        base_snapshot = BaseStateSnapshot(cfg, specific_arch.mmio_and_isr_range)
+        base_snapshot = BaseStateSnapshot(cfg, specific_arch.mmio_and_isr_range())
         base_snapshot.bb_trace, base_snapshot.ram_trace, base_snapshot.mmio_trace = (bb_trace, ram_trace, mmio_trace)
 
         project = angr.Project(sio, arch=specific_arch.arch, main_opts={'backend': 'hex', 'entry_point': specific_arch.read_pc(regs, thumb_mode=True)})
@@ -165,7 +165,7 @@ class BaseStateSnapshot:
 
         initial_state = project.factory.blank_state(addr=specific_arch.read_pc(regs, thumb_mode=True))
 
-        arm_thumb_quirks.add_special_initstate_reg_vals(initial_state, regs)
+        specific_arch.quirks.add_special_initstate_reg_vals(initial_state, regs)
 
         # apply registers to state
         initial_sp = None

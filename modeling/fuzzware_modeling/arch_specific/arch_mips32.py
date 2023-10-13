@@ -50,9 +50,9 @@ class ArchSpecificsMIPS32(ArchSpecifics):
         self.newly_added_constraints_reg_names = self.scope_reg_names
 
         if endness == "LE":
-            self.arch = archinfo.ArchMIPS32(endness='Iend_LE')
+            self._arch = archinfo.ArchMIPS32(endness='Iend_LE')
         else:
-            self.arch = archinfo.ArchMIPS32(endness='Iend_BE')
+            self._arch = archinfo.ArchMIPS32(endness='Iend_BE')
 
     def return_reg(self):
         if self.state is None:
