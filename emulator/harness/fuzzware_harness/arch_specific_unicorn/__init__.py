@@ -4,9 +4,9 @@ from .arch import logger
 
 
 def create_unicorn_from_config(arch, endness):
-    logger.debug(f"arch:{arch}, endness:{endness}")
     selector = {"ARMCortexM": ArchSpecificsARMCortexM, "MIPS32": ArchSpecificsMIPS32}
 
     arch_specifics = selector[arch](endness)
     uc = arch_specifics.uc
     uc.specifics = arch_specifics
+    return uc
