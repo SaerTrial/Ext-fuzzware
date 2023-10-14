@@ -166,7 +166,7 @@ class ArchSpecificsMIPS32(ArchSpecifics):
         self._uc = Uc(UC_ARCH_MIPS, UC_MODE_MIPS32 | endianness[endness])
         ArchSpecificsMIPS32.mips_enable_DSP(self._uc)
 
-    @property
+    @staticmethod
     def mips_enable_DSP(uc):
         # enable DSP
         dsp = uc.reg_read(UC_MIPS_REG_CP0_STATUS)
