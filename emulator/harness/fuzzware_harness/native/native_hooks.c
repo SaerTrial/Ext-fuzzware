@@ -995,7 +995,7 @@ uc_err init(uc_engine *uc, exit_hook_t p_exit_hook, int p_num_mmio_regions, uint
     // TODO: assumes shared endianness
     uc_mem_write(uc, CPUID_ADDR, &CPUID_CORTEX_M4, sizeof(CPUID_CORTEX_M4));
 
-    freopen("/home/user/all_logs.txt", "a+", stdout);
+    // freopen("/home/user/all_logs.txt", "a+", stdout);
 
     if(p_exit_hook) {
         add_exit_hook(p_exit_hook);
@@ -1091,7 +1091,7 @@ uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path)
 {
     uint64_t pc = 0;
     fflush(stdout);
-    freopen("/home/user/all_logs.txt", "a+", stdout);
+    // freopen("/home/user/all_logs.txt", "a+", stdout);
     uint32_t arch_pc = get_current_pc(uc);
     uint64_t pc_mark = get_pc_mark(uc);
 

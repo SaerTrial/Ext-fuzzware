@@ -1,8 +1,6 @@
 from .arch_cortexm import ArchSpecificsARMCortexM
 from .arch_mips32 import ArchSpecificsMIPS32
-import logging
-
-logger = logging.getLogger("arch_specific_unicorn")
+from .arch import logger
 
 
 def create_unicorn_from_config(arch, endness):
