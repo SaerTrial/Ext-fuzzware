@@ -68,9 +68,9 @@ def parse_symbols(config):
 
     # Create the symbol table
     if 'symbols' in config:
-        try:
-            addr_to_name = {arm_clear_thumb_bit(config["arch"].lower(), k): v for k, v in config['symbols'].items()}
-            name_to_addr = {v: arm_clear_thumb_bit(config["arch"].lower(), k) for k, v in config['symbols'].items()}
+        try: 
+            addr_to_name = {k & 0xFFFFFFFE: v for k, v in config['symbols'].items()}
+            name_to_addr = {v: k & 0xFFFFFFFE for k, v in config['symbols'].items()}
         except TypeError as e:
             logger.error("Type error while parsing symbols. The symbols configuration was likely mis-formatted. The format is 0xdeadbeef: my_symbol_name. Raising original error.")
             raise e
@@ -216,116 +216,116 @@ def load_config_deep(path):
     return resolve_config_includes(config, path)
 
 
-def create_unicorn_instance(arch, endianness = "little-endian"):
-    assert len(arch) != 0 and type(arch) == str
-    assert endianness == "little-endian" or endianness == "big-endian"  
+# def create_unicorn_instance(arch, endianness = "little-endian"):
+#     assert len(arch) != 0 and type(arch) == str
+#     assert endianness == "little-endian" or endianness == "big-endian"  
 
-    if endianness == "little-endian":
-        uc_mode = UC_MODE_LITTLE_ENDIAN
-    else:
-        uc_mode = UC_MODE_BIG_ENDIAN
+#     if endianness == "little-endian":
+#         uc_mode = UC_MODE_LITTLE_ENDIAN
+#     else:
+#         uc_mode = UC_MODE_BIG_ENDIAN
 
-    if arch.lower() == "mips32":
-        uc = Uc(UC_ARCH_MIPS, UC_MODE_MIPS32 | uc_mode)
-        uc.arch_name = "mips32"
-        uc.arch = archinfo.ArchMIPS32()
-        mips_enable_DSP(uc)
-    elif arch.lower() == "cortex-m":
-        uc = Uc(UC_ARCH_ARM, UC_MODE_THUMB | UC_MODE_MCLASS | uc_mode)
-        uc.arch_name = "cortex-m"
-        uc.arch = archinfo.ArchARMCortexM()
+#     if arch.lower() == "mips32":
+#         uc = Uc(UC_ARCH_MIPS, UC_MODE_MIPS32 | uc_mode)
+#         uc.arch_name = "mips32"
+#         uc.arch = archinfo.ArchMIPS32()
+#         mips_enable_DSP(uc)
+#     elif arch.lower() == "cortex-m":
+#         uc = Uc(UC_ARCH_ARM, UC_MODE_THUMB | UC_MODE_MCLASS | uc_mode)
+#         uc.arch_name = "cortex-m"
+#         uc.arch = archinfo.ArchARMCortexM()
     
-    return uc
+#     return uc
 
 
-def mips_enable_DSP(uc):
-    assert uc.arch_name == "mips32"
+# def mips_enable_DSP(uc):
+#     assert uc.arch_name == "mips32"
 
-    # enable DSP
-    dsp = uc.reg_read(UC_MIPS_REG_CP0_STATUS)
-    dsp |= (1 << 24)
-    uc.reg_write(UC_MIPS_REG_CP0_STATUS, dsp)
-
-
-def arm_clear_thumb_bit(arch_name, addr_val):
-    if arch_name != "cortex-m":
-        return addr_val
-
-    addr_val &= 0xFFFFFFFE
-
-    return addr_val
+#     # enable DSP
+#     dsp = uc.reg_read(UC_MIPS_REG_CP0_STATUS)
+#     dsp |= (1 << 24)
+#     uc.reg_write(UC_MIPS_REG_CP0_STATUS, dsp)
 
 
-def read_entry_point(config, entry_image_base, uc):
-    if "entry_point" in config:
-        return config["entry_point"]
+# def arm_clear_thumb_bit(arch_name, addr_val):
+#     if arch_name != "cortex-m":
+#         return addr_val
 
-    if uc.arch_name != "cortex-m":
-        logger.error("For binaries of other archs, entry_point needs to be set up")
-        sys.exit(1)
+#     addr_val &= 0xFFFFFFFE
 
-    if entry_image_base is None:
-        logger.error("Binary entry point missing! Make sure 'entry_point is in your configuration")
-        sys.exit(1)
+#     return addr_val
 
 
-    entry_point = bytes2int(uc.mem_read(entry_image_base + 4, 4))
+# def read_entry_point(config, entry_image_base, uc):
+#     if "entry_point" in config:
+#         return config["entry_point"]
 
-    logger.debug(f"Recovered entry points: {entry_point:08x}")
+#     if uc.arch_name != "cortex-m":
+#         logger.error("For binaries of other archs, entry_point needs to be set up")
+#         sys.exit(1)
 
-    return entry_point
+#     if entry_image_base is None:
+#         logger.error("Binary entry point missing! Make sure 'entry_point is in your configuration")
+#         sys.exit(1)
 
 
-def read_initial_sp(config, entry_image_base, uc):
-    if "initial_sp" in config:
-        return config["initial_sp"]
+#     entry_point = bytes2int(uc.mem_read(entry_image_base + 4, 4))
 
-    if uc.arch_name != "cortex-m":
-        logger.error("For binaries of other archs, initial stack pointer needs to be set up")
-        sys.exit(1)
+#     logger.debug(f"Recovered entry points: {entry_point:08x}")
 
-    if entry_image_base is None:
-        logger.error("Binary entry point missing! Make sure 'entry_point is in your configuration")
-        sys.exit(1)
+#     return entry_point
+
+
+# def read_initial_sp(config, entry_image_base, uc):
+#     if "initial_sp" in config:
+#         return config["initial_sp"]
+
+#     if uc.arch_name != "cortex-m":
+#         logger.error("For binaries of other archs, initial stack pointer needs to be set up")
+#         sys.exit(1)
+
+#     if entry_image_base is None:
+#         logger.error("Binary entry point missing! Make sure 'entry_point is in your configuration")
+#         sys.exit(1)
     
 
-    initial_sp =  bytes2int(uc.mem_read(entry_image_base, 4))
+#     initial_sp =  bytes2int(uc.mem_read(entry_image_base, 4))
 
-    logger.debug(f"Recovered initial_sp: {initial_sp:08x}")
+#     logger.debug(f"Recovered initial_sp: {initial_sp:08x}")
 
-    return initial_sp
-
-
-def get_current_pc(uc):
-    if uc.arch_name == "mips32":
-      return UC_MIPS_REG_PC
-    elif uc.arch_name == "cortex-m":
-      return UC_ARM_REG_PC
-
-    raise ValueError
+#     return initial_sp
 
 
-def get_current_sp(uc):
-    if uc.arch_name == "mips32":
-      return UC_MIPS_REG_SP
-    elif uc.arch_name == "cortex-m":
-      return UC_ARM_REG_SP
+# def get_current_pc(uc):
+#     if uc.arch_name == "mips32":
+#       return UC_MIPS_REG_PC
+#     elif uc.arch_name == "cortex-m":
+#       return UC_ARM_REG_PC
 
-    raise ValueError
+#     raise ValueError
 
 
-def get_arch_const(uc):
-    if uc.arch_name == "mips32":
-      return mips_const
-    elif uc.arch_name == "cortex-m":
-      return arm_const
+# def get_current_sp(uc):
+#     if uc.arch_name == "mips32":
+#       return UC_MIPS_REG_SP
+#     elif uc.arch_name == "cortex-m":
+#       return UC_ARM_REG_SP
 
-    raise ValueError
+#     raise ValueError
 
-def get_arch_registers(uc):
-    if uc.arch_name == "mips32":
-      return mips_registers
-    elif uc.arch_name == "cortex-m":
-      return arm_registers
 
-    raise ValueError
+# def get_arch_const(uc):
+#     if uc.arch_name == "mips32":
+#       return mips_const
+#     elif uc.arch_name == "cortex-m":
+#       return arm_const
+
+#     raise ValueError
+
+# def get_arch_registers(uc):
+#     if uc.arch_name == "mips32":
+#       return mips_registers
+#     elif uc.arch_name == "cortex-m":
+#       return arm_registers
+
+#     raise ValueError

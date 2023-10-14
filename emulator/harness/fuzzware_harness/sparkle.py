@@ -21,10 +21,10 @@ class SparklyRegs():
 
     def __getattribute__(self, regname):
         myuc = object.__getattribute__(self, '_uc')
-        for x in dir(util.get_arch_const(myuc)):
+        for x in dir(myuc.specifics.const.all): 
             if x.endswith('REG_' + regname.upper()):
                 # return myuc.reg_read(getattr(unicorn.arm_const, x))
-                return myuc.reg_read(getattr(util.get_arch_const(myuc), x))
+                return myuc.reg_read(myuc.specifics.const.x)
         return object.__getattribute__(self, regname)
 
     # register_list depends on archinfo
@@ -50,7 +50,7 @@ class SparklyRegs():
         for x in dir(unicorn.arm_const):
             if x.endswith('_' + regname.upper()):
                 # return myuc.reg_write(getattr(unicorn.arm_const, x), val)
-                return myuc.reg_write(getattr(util.get_arch_const(myuc), x), val)
+                return myuc.reg_write(myuc.specifics.const.x, val)
         return object.__getattribute__(self, regname)
 
     def __repr__(self):
@@ -117,14 +117,14 @@ class SparklyStack():
     def __getitem__(self, key):
         myuc = object.__getattribute__(self, '_uc')
         # sp = myuc.reg_read(unicorn.arm_const.UC_ARM_REG_SP)
-        sp = myuc.reg_read(util.get_current_sp(myuc))
+        sp = myuc.reg_read(myuc.specifics.const.sp) 
         if isinstance(key, slice):
             return myuc.mem_read(sp + key.start, (key.stop-key.start))
         return myuc.mem_read(sp + key, 4)
 
     def __setitem__(self, key, value):
         myuc = object.__getattribute__(self, '_uc')
-        sp = myuc.reg_read(util.get_current_sp(myuc))
+        sp = myuc.reg_read(myuc.specifics.const.sp)
         if isinstance(value, bytes):
             myuc.mem_write(sp + key, value)
         else:
@@ -219,8 +219,7 @@ def add_sparkles(uc, args):
             except ValueError:
                 bp_addr = util.parse_address_value(uc.symbols, bp)
 
-            breakpoints.append(util.arm_clear_thumb_bit(uc.arch_name, bp_addr))
+            breakpoints.append(bp_addr & 0xFFFFFFFE)
         uc.hook_add(unicorn.UC_HOOK_BLOCK_UNCONDITIONAL, breakpoint_handler)
 
-   
     return uc

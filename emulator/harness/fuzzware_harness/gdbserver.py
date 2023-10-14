@@ -72,7 +72,7 @@ class GDBServer(Thread):
         self.daemon=True
         self.sock = socket.socket(AF_INET, SOCK_STREAM)
         self.sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-        unicorn_registers = get_arch_registers(self.unicorn)
+        unicorn_registers = uc.specifics.gdb_registers
         self.port = port
         self.conn = None
         self._packetsize=0x47FF

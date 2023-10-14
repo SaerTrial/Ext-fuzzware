@@ -18,7 +18,7 @@ internal_indices = {}
 delayed_timers = {}
 
 def timer_start_block_hook(uc):
-    address = uc.reg_read(util.get_current_pc(uc))
+    address = uc.reg_read(uc.specifics.const.pc)
     if address in delayed_timers:
         # Remove the timer along the way
         for timer_id in delayed_timers.pop(address):

@@ -7,100 +7,6 @@ from .trace_bbs import dump_current_bb_trace
 from .. import util
 logger = logging.getLogger("emulator")
 
-uc_reg_consts = {"cortex-m": [UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_R4,
-            UC_ARM_REG_R5, UC_ARM_REG_R6, UC_ARM_REG_R7, UC_ARM_REG_R8, UC_ARM_REG_R9,
-            UC_ARM_REG_R10, UC_ARM_REG_R11, UC_ARM_REG_R12, UC_ARM_REG_LR, UC_ARM_REG_PC,
-            UC_ARM_REG_SP, UC_ARM_REG_XPSR],
-                "mips32": [UC_MIPS_REG_ZERO,
-    UC_MIPS_REG_AT,
-    UC_MIPS_REG_V0,
-    UC_MIPS_REG_V1,
-    UC_MIPS_REG_A0,
-    UC_MIPS_REG_A1,
-    UC_MIPS_REG_A2,
-    UC_MIPS_REG_A3,
-    UC_MIPS_REG_T0,
-    UC_MIPS_REG_T1,
-    UC_MIPS_REG_T2,
-    UC_MIPS_REG_T3,
-    UC_MIPS_REG_T4,
-    UC_MIPS_REG_T5,
-    UC_MIPS_REG_T6,
-    UC_MIPS_REG_T7,
-    UC_MIPS_REG_S0,
-    UC_MIPS_REG_S1,
-    UC_MIPS_REG_S2,
-    UC_MIPS_REG_S3,
-    UC_MIPS_REG_S4,
-    UC_MIPS_REG_S5,
-    UC_MIPS_REG_S6,
-    UC_MIPS_REG_S7,
-    UC_MIPS_REG_T8,
-    UC_MIPS_REG_T9,
-    UC_MIPS_REG_K0,
-    UC_MIPS_REG_K1,
-    UC_MIPS_REG_GP,
-    UC_MIPS_REG_SP,
-    UC_MIPS_REG_RA,
-    UC_MIPS_REG_PC]
-        }
-
-dump_template = {"cortex-m": """r0=0x{:x}
-r1=0x{:x}
-r2=0x{:x}
-r3=0x{:x}
-r4=0x{:x}
-r5=0x{:x}
-r6=0x{:x}
-r7=0x{:x}
-r8=0x{:x}
-r9=0x{:x}
-r10=0x{:x}
-r11=0x{:x}
-r12=0x{:x}
-lr=0x{:x}
-pc=0x{:x}
-sp=0x{:x}
-xpsr=0x{:x}
-""",
-"mips32": """zero=0x{:x}
-at=0x{:x}
-v0=0x{:x}
-v1=0x{:x}
-a0=0x{:x}
-a1=0x{:x}
-a2=0x{:x}
-a3=0x{:x}
-t0=0x{:x}
-t1=0x{:x}
-t2=0x{:x}
-t3=0x{:x}
-t4=0x{:x}
-t5=0x{:x}
-t6=0x{:x}
-t7=0x{:x}
-s0=0x{:x}
-s1=0x{:x}
-s2=0x{:x}
-s3=0x{:x}
-s4=0x{:x}
-s5=0x{:x}
-s6=0x{:x}
-s7=0x{:x}
-t8=0x{:x}
-t9=0x{:x}
-k0=0x{:x}
-k1=0x{:x}
-gp=0x{:x}
-sp=0x{:x}
-ra=0x{:x}
-pc=0x{:x}
-"""
-}
-
-
-
-
 
 NUM_BB_LINES_FOR_MMIO_ACCESS_STATE_TRACE = 50 * 1000
 
@@ -116,7 +22,7 @@ def dump_state_exit_hook(uc):
     dump_state(out_filename, regs, content_map)
 
 def collect_regs(uc):
-    return {const: uc.reg_read(const) for const in uc_reg_consts[uc.arch_name]}
+    return {const: uc.reg_read(const) for const in uc.specifics.const.snapshot_reg_cons}
 
 def collect_state(uc):
     from .. import globs
@@ -196,7 +102,7 @@ def dump_state(uc, filename, regs, content_chunks):
         ih.puts(base_addr, contents)
 
     with open(filename, "w") as f:
-        f.write(dump_template[uc.arch_name].format(*[regs[const] for const in uc_reg_consts[uc.arch_name]]))
+        f.write(uc.specifics.dump_template.format(*[regs[const] for const in uc.specifics.const.snapshot_reg_cons]))
         logger.debug("Writing ihex dump now...")
         ih.write_hex_file(f)
 
@@ -217,13 +123,13 @@ def mem_hook_dump_state_after_mmio_read(uc, access, address, size, value, user_d
     global latest_regs
     global dump_pc_address_pairs
     
-    pc = uc.reg_read(util.get_current_pc(uc))
+    pc = uc.reg_read(uc.specifics.const.pc)
 
     # Allow user to specify which MMIO states are of interest
     if dump_pc_address_pairs and (pc, address) not in dump_pc_address_pairs:
         return
     
-    old_pc = latest_regs[util.get_current_pc(uc)]
+    old_pc = latest_regs[uc.specifics.const.pc]
     if pc != old_pc:
         logger.warning("Got unconsistency in mem read hook between 0x{:08x} (before) vs 0x{:08x} (after)".format(old_pc, pc))
         input("continue...?")
@@ -232,7 +138,7 @@ def mem_hook_dump_state_after_mmio_read(uc, access, address, size, value, user_d
         dump_count += 1
         logger.debug("Dumping state for MMIO access to 0x{:08x} from 0x{:08x}".format(address, pc))
         _, content_map = collect_state(uc)
-        latest_regs[util.get_current_pc(uc)] = pc
+        latest_regs[uc.specifics.const.pc] = pc
 
         from .. import globs
 
@@ -247,7 +153,7 @@ def mem_hook_dump_state_after_mmio_read(uc, access, address, size, value, user_d
 
 def mem_hook_record_regs_before_mmio_read(uc, access, address, size, value, user_data):
     global latest_regs
-    pc = uc.reg_read(util.get_current_pc(uc))
+    pc = uc.reg_read(uc.specifics.const.pc)
     # Allow user to specify which MMIO states are of interest
     if dump_pc_address_pairs and (pc, address) not in dump_pc_address_pairs:
         return

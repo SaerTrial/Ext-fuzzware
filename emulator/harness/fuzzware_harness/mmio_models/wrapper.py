@@ -14,7 +14,7 @@ mmio_handlers = []
 def mmio_access_handler_wrapper_hook(uc, access, address, size, value, user_data):
     global mmio_handlers
 
-    curr_pc = uc.reg_read(get_current_pc(uc))
+    curr_pc = uc.reg_read(uc.specifics.const.pc) 
     for start, end, pc, callback in mmio_handlers:
         if start <= address <= end and pc in (0, curr_pc):
             if callback(uc, access, address, size, value, user_data):

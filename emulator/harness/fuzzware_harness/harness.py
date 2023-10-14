@@ -14,6 +14,7 @@ from .user_hooks import (add_block_hook, add_func_hook,
 # from .util import (bytes2int, load_config_deep, parse_address_value,
 #                    parse_symbols, resolve_region_file_paths)
 from .util import *
+from .arch_specific_unicorn import create_unicorn_from_config
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger("emulator")
@@ -59,8 +60,9 @@ def configure_unicorn(args):
         logger.error("Endianness must be setup in config file")
         sys.exit(1)
 
-    uc = create_unicorn_instance(config["arch"], config["endianness"])
-
+    # uc = create_unicorn_instance(config["arch"], config["endianness"])
+    uc = create_unicorn_from_config(config["arch"], config["endianness"])
+    
     uc.symbols, uc.syms_by_addr = parse_symbols(config)
 
     regions = {}
@@ -163,16 +165,16 @@ def configure_unicorn(args):
     globs.regions = regions
     
     # for MIPS, need to read stack pointer and entry point from config.yml
-    config['initial_sp'] = read_initial_sp(config, entry_image_base, uc)
-    config['entry_point'] = read_entry_point(config, entry_image_base, uc)
+    config['initial_sp'] = uc.specifics.read_initial_sp(config, entry_image_base)
+    config['entry_point'] = uc.specifics.read_entry_point(config, entry_image_base)
     
     # Set the program entry point and stack pointer
     # uc.reg_write(UC_ARM_REG_PC, config['entry_point'])
-    uc.reg_write(get_current_pc(uc), config['entry_point'])
+    uc.reg_write(uc.specifics.const.pc, config['entry_point'])
 
     # The stack pointer is aligned during CPU reset
     # uc.reg_write(UC_ARM_REG_SP, config['initial_sp'] & 0xfffffffc)
-    uc.reg_write(get_current_sp(uc), config['initial_sp'] & 0xfffffffc)
+    uc.reg_write(uc.specifics.const.sp, config['initial_sp'] & 0xfffffffc)
 
     mmio_ranges = [(start, start + size) for rname, (start, size, prot) in regions.items() if rname.lower().startswith('mmio')]
     if not mmio_ranges:
@@ -238,7 +240,7 @@ def configure_unicorn(args):
                 addr_val = handler_desc['addr']
                 # This handler is always at a fixed address
                 if isinstance(addr_val, int):
-                    addr_val = arm_clear_thumb_bit(uc.arch_name, addr_val)
+                    addr_val &= 0xFFFFFFFE
                     # addr_val &= uc.bit_cleaner # Clear thumb bit in case of cortex-M
                     uc.syms_by_addr[addr_val] = fname
             else:
