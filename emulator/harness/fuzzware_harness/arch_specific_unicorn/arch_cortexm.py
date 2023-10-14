@@ -146,5 +146,5 @@ class ArchSpecificsARMCortexM(ArchSpecifics):
     
     @property
     def dump_template(self):
-        return "arch=ARMCortexM\n" + "endness=LE\n" if self._endness == "LE" else "endness=BE\n" \
+        return ("arch=ARMCortexM\n" + "endness=LE\n" if self._endness == "LE" else "endness=BE\n") \
             + arm_dump_template

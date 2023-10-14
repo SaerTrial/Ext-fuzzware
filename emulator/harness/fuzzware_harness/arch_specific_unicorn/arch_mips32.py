@@ -204,5 +204,5 @@ class ArchSpecificsMIPS32(ArchSpecifics):
 
     @property
     def dump_template(self):
-        return "arch=MIPS32\n" + "endness=LE\n" if self._endness == "LE" else "endness=BE\n" \
+        return ("arch=MIPS32\n" + "endness=LE\n" if self._endness == "LE" else "endness=BE\n") \
             + mips_dump_template
