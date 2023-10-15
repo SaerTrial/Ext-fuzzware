@@ -1,5 +1,6 @@
 #include "native_tracing.h"
 #include "util.h"
+#include "arch_specifics.h"
 // 0. Constants
 #define DEFAULT_INITIAL_MMIO_ACCESS_CONTEXT_TRACE_SET_CAPACITY 0x10000
 #define DEFAULT_INITIAL_PC_TRACE_SET_CAPACITY 0x10000

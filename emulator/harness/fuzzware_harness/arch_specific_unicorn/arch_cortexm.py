@@ -87,16 +87,7 @@ class ConstARMCortexM(Const):
         for x in dir(arm_const):
             if x.endswith('REG_' + const_name.upper()):
                 return getattr(arm_const, x)
-        return -1
-    
-    @property
-    def all(self):
-        return arm_const
-    
-    @property
-    def snapshot_reg_cons(self):
-        return snapshot_reg_cons
-
+        return object.__getattribute__(self, const_name)
 
 class ArchSpecificsARMCortexM(ArchSpecifics):
     def __init__(self, endness):
@@ -148,3 +139,11 @@ class ArchSpecificsARMCortexM(ArchSpecifics):
     def dump_template(self):
         return ("arch=ARMCortexM\n" + "endness=LE\n" if self._endness == "LE" else "endness=BE\n") \
             + arm_dump_template
+    
+    @property
+    def all_const(self):
+        return arm_const
+    
+    @property
+    def snapshot_reg_cons(self):
+        return snapshot_reg_cons

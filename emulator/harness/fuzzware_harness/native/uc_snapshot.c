@@ -2,6 +2,7 @@
 #include "state_snapshotting.h"
 #include <string.h>
 #include "util.h"
+#include "arch_specifics.h"
 /*
  * Snapshotting of the unicorn engine state (registers and memory).
  *

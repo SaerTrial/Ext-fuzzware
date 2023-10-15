@@ -2,18 +2,20 @@
 #include <unistd.h>
 #include <unicorn/unicorn.h>
 
+#ifndef ARCH_SPECIFICS_H
+#define ARCH_SPECIFICS_H
 
 int return_pc_const(uc_engine *uc);
 int return_sp_const(uc_engine *uc);
 
-void _print_bb_info(uc_engine *uc, uint64_t address);
+void print_bb_info_deep(uc_engine *uc, uint64_t address);
 void print_other_stack_state(uc_engine *uc);
 
 
 uint64_t return_addr_mark(uc_engine *uc);
 int return_num_dumped_regs(uc_engine *uc);
 int* return_reg_consts(uc_engine *uc);
-char* return_reg_names(uc_engine *uc);
+char** return_reg_names(uc_engine *uc);
 
 //----------------------------arm-------------------------
 #define ARM_NUM_DUMPED_REGS 18
@@ -79,3 +81,5 @@ static char* mips32_reg_names[MIPS32_NUM_DUMPED_REGS] = {
         "k1", "gp", "sp",
         "fp", "ra", "pc"};
 //-----------------------------------------------------------
+
+#endif

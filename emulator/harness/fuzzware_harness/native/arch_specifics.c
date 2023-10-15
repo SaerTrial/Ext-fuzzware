@@ -29,7 +29,7 @@ int return_sp_const(uc_engine *uc){
 }
 
 
-void _print_bb_info(uc_engine *uc, uint64_t address){
+void print_bb_info_deep(uc_engine *uc, uint64_t address){
     uint32_t arch = uc_read_arch(uc);
     
     if (arch == UC_ARCH_ARM) {
@@ -45,6 +45,7 @@ void _print_bb_info(uc_engine *uc, uint64_t address){
 
 void print_other_stack_state(uc_engine *uc){
     uint32_t arch = uc_read_arch(uc);
+    uint32_t sp;
     puts("======================\n");
     puts("\n==== UC Other Stack state ====");
 
@@ -83,12 +84,12 @@ int* return_reg_consts(uc_engine *uc){
         return mips32_reg_consts;
 
     //invalid
-    return NULL;    
+    return 0;    
 
 }
 
 
-char* return_reg_names(uc_engine *uc){
+char** return_reg_names(uc_engine *uc){
     uint32_t arch = uc_read_arch(uc);
 
     if (arch == UC_ARCH_ARM) 
@@ -97,7 +98,7 @@ char* return_reg_names(uc_engine *uc){
     if (arch == UC_ARCH_MIPS)
         return mips32_reg_names;    
 
-    return NULL
+    return 0;
 }
 
 
@@ -110,7 +111,7 @@ int return_num_dumped_regs(uc_engine *uc){
     if (arch == UC_ARCH_MIPS)
         return MIPS32_NUM_DUMPED_REGS;    
 
-    return NULL
+    return 0;
 }
 
 

@@ -21,17 +21,17 @@ class SparklyRegs():
 
     def __getattribute__(self, regname):
         myuc = object.__getattribute__(self, '_uc')
-        for x in dir(myuc.specifics.const.all): 
+        for x in dir(myuc.specifics.all_const): 
             if x.endswith('REG_' + regname.upper()):
-                # return myuc.reg_read(getattr(unicorn.arm_const, x))
-                return myuc.reg_read(myuc.specifics.const.x)
+                return myuc.reg_read(getattr(myuc.specifics.const, regname))
+                # return myuc.reg_read(myuc.specifics.const.x)
         return object.__getattribute__(self, regname)
 
     # register_list depends on archinfo
     def get_all(self):
         out = {}
         myuc = object.__getattribute__(self, '_uc')
-        for reg in myuc.arch.register_list:
+        for reg in myuc.specifics.archinfo_registers:
             if not reg.artificial:
                 n = reg.name
                 if "d" not in n:
@@ -47,17 +47,20 @@ class SparklyRegs():
         if regname == "_uc":
             object.__setattr__(self, regname, val)
         myuc = object.__getattribute__(self, '_uc')
-        for x in dir(unicorn.arm_const):
+
+
+
+        for x in dir(myuc.specifics.all_const):
             if x.endswith('_' + regname.upper()):
-                # return myuc.reg_write(getattr(unicorn.arm_const, x), val)
-                return myuc.reg_write(myuc.specifics.const.x, val)
+                return myuc.reg_write(getattr(myuc.specifics.const, regname), val)
+                # return myuc.reg_write(myuc.specifics.const.x, val)
         return object.__getattribute__(self, regname)
 
     def __repr__(self):
         myuc = object.__getattribute__(self, '_uc')
 
         s = "Unicorn Registers:\n----------------\n"
-        for reg in myuc.arch.register_list:
+        for reg in myuc.specifics.archinfo_registers:
             if not reg.artificial:
                 n = reg.name
                 if "d" not in n:

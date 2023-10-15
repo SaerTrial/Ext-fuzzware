@@ -11,7 +11,7 @@ LDFLAGS += -shared -L$(LIBDIR) -lunicorn
 
 .PHONY: all clean
 
-SOURCES = native_hooks.c timer.c interrupt_triggers.c util.c state_snapshotting.c native_tracing.c uc_snapshot.c
+SOURCES = native_hooks.c timer.c interrupt_triggers.c util.c state_snapshotting.c native_tracing.c uc_snapshot.c arch_specifics.c
 SOURCES += core_peripherals/cortexm_nvic.c core_peripherals/cortexm_systick.c
 
 BINS = $(SOURCES:.c=$(BIN_EXT))

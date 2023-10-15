@@ -84,7 +84,7 @@ void print_state(uc_engine *uc) {
 
 
 void print_bb_info(uc_engine *uc, uint64_t address){ 
-    _print_bb_info(uc, address);
+    print_bb_info_deep(uc, address);
     fflush(stdout);
 }
 

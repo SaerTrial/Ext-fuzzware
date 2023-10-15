@@ -22,7 +22,7 @@ def dump_state_exit_hook(uc):
     dump_state(out_filename, regs, content_map)
 
 def collect_regs(uc):
-    return {const: uc.reg_read(const) for const in uc.specifics.const.snapshot_reg_cons}
+    return {const: uc.reg_read(const) for const in uc.specifics.snapshot_reg_cons}
 
 def collect_state(uc):
     from .. import globs
@@ -102,7 +102,7 @@ def dump_state(uc, filename, regs, content_chunks):
         ih.puts(base_addr, contents)
 
     with open(filename, "w") as f:
-        f.write(uc.specifics.dump_template.format(*[regs[const] for const in uc.specifics.const.snapshot_reg_cons]))
+        f.write(uc.specifics.dump_template.format(*[regs[const] for const in uc.specifics.snapshot_reg_cons]))
         logger.debug("Writing ihex dump now...")
         ih.write_hex_file(f)
 

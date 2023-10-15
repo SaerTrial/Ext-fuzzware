@@ -148,15 +148,7 @@ class ConstMIPS32(Const):
         for x in dir(mips_const):
             if x.endswith('REG_' + const_name.upper()):
                 return getattr(mips_const, x)
-        return -1
-    
-    @property
-    def all(self):
-        return mips_const
-    
-    @property
-    def snapshot_reg_cons(self):
-        return snapshot_reg_cons
+        return object.__getattribute__(self, const_name)
 
 
 class ArchSpecificsMIPS32(ArchSpecifics):
@@ -206,3 +198,11 @@ class ArchSpecificsMIPS32(ArchSpecifics):
     def dump_template(self):
         return ("arch=MIPS32\n" + "endness=LE\n" if self._endness == "LE" else "endness=BE\n") \
             + mips_dump_template
+
+    @property
+    def all_const(self):
+        return mips_const
+    
+    @property
+    def snapshot_reg_cons(self):
+        return snapshot_reg_cons
