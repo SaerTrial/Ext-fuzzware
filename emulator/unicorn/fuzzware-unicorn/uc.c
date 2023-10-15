@@ -1650,7 +1650,7 @@ uc_err uc_fuzzer_reset_cov(uc_engine *uc, int do_clear)
 
 
 UNICORN_EXPORT
-int uc_get_arch(uc_engine *uc)
+int uc_read_arch(uc_engine *uc)
 {
     if (uc->arch < 1 || uc->arch > 8)
     {

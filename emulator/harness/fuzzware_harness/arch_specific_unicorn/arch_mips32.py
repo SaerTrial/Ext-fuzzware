@@ -148,7 +148,7 @@ class ConstMIPS32(Const):
         for x in dir(mips_const):
             if x.endswith('REG_' + const_name.upper()):
                 return getattr(mips_const, x)
-        return object.__getattribute__(self, const_name)
+        return -1
     
     @property
     def all(self):

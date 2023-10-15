@@ -21,13 +21,13 @@ ram_events = []
 
 #TODO: replace ARM-specific code snippets
 def mem_hook_trace_mmio_access(uc, access, address, size, value, user_data):
-    mmio_events.append((next_event_id(uc), uc.reg_read(util.get_current_pc(uc)), uc.reg_read(UC_ARM_REG_LR) if uc.arch_name == "cortex-m" else 0, "w" if access == UC_MEM_WRITE else "r", size, 0 if access == UC_MEM_WRITE else native.get_latest_mmio_fuzz_access_index(), 0 if access == UC_MEM_WRITE else native.get_latest_mmio_fuzz_access_size(), address, value))
+    mmio_events.append((next_event_id(uc), uc.reg_read(uc.specifics.const.pc), uc.reg_read(uc.specifics.const.lr), "w" if access == UC_MEM_WRITE else "r", size, 0 if access == UC_MEM_WRITE else native.get_latest_mmio_fuzz_access_index(), 0 if access == UC_MEM_WRITE else native.get_latest_mmio_fuzz_access_size(), address, value))
 
 def mem_hook_collect_mmio_access_context(uc, access, address, size, value, user_data):
-    mmio_access_contexts.add((uc.reg_read(util.get_current_pc(uc)), address, "w" if access == UC_MEM_WRITE else "r"))
+    mmio_access_contexts.add((uc.reg_read(uc.specifics.const.pc), address, "w" if access == UC_MEM_WRITE else "r"))
 
 def mem_hook_trace_ram_access(uc, access, address, size, value, user_data):
-    ram_events.append((next_event_id(uc), uc.reg_read(util.get_current_pc(uc)), uc.reg_read(UC_ARM_REG_LR) if uc.arch_name == "cortex-m" else 0, "w" if access == UC_MEM_WRITE else "r", size, address, value))
+    ram_events.append((next_event_id(uc), uc.reg_read(uc.specifics.const.pc), uc.reg_read(uc.specifics.const.lr), "w" if access == UC_MEM_WRITE else "r", size, address, value))
 
 def exit_hook_dump_mmio_access_events(uc):
     dump_mmio_trace_file(mmio_events, mmio_outfile)

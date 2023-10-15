@@ -87,7 +87,7 @@ class ConstARMCortexM(Const):
         for x in dir(arm_const):
             if x.endswith('REG_' + const_name.upper()):
                 return getattr(arm_const, x)
-        return object.__getattribute__(self, const_name)
+        return -1
     
     @property
     def all(self):

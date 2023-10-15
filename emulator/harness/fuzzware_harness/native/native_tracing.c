@@ -47,7 +47,7 @@ void hook_mem_trace_mmio_access(uc_engine *uc, uc_mem_type type,
     uint32_t pc;
     int kh_res;
     uint64_t context;
-    uc_reg_read(uc, get_current_pc(uc), &pc);
+    uc_reg_read(uc, return_pc_const(uc), &pc);
     context = ENCODE_MMIO_ACCESS_CONTEXT(pc, addr);
 
     if(type == UC_MEM_WRITE) {

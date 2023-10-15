@@ -13,7 +13,7 @@
 #include "interrupt_triggers.h"
 #include "state_snapshotting.h"
 #include "uc_snapshot.h"
-
+#include "arch_specifics.h"
 #include <unicorn/unicorn.h>
 
 #include <unistd.h>
@@ -162,13 +162,9 @@ void hook_block_debug(uc_engine *uc, uint64_t address, uint32_t size, void *user
 void hook_debug_mem_access(uc_engine *uc, uc_mem_type type,
         uint64_t address, int size, int64_t value, void *user_data) {
     uint32_t pc, sp;
-    uint32_t arch_pc = get_current_pc(uc), arch_sp = get_current_sp(uc);
 
-    uc_reg_read(uc, arch_pc, &pc);
-    uc_reg_read(uc, arch_sp, &sp);
-
-    // uc_reg_read(uc, UC_ARM_REG_SP, &sp);
-    // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
+    uc_reg_read(uc, return_pc_const(uc), &pc);
+    uc_reg_read(uc, return_sp_const(uc), &sp);
 
     int64_t sp_offset = sp - address;
     if(sp_offset > -0x1000 && sp_offset < 0x2000) {
@@ -203,11 +199,10 @@ uc_err add_debug_hooks(uc_engine *uc) {
 
 bool hook_debug_mem_invalid_access(uc_engine *uc, uc_mem_type type,
         uint64_t address, int size, int64_t value, void *user_data) {
-    uint64_t pc = 0;
-    uint32_t arch_pc = get_current_pc(uc);
     
-    uc_reg_read(uc, arch_pc, &pc);
-    // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
+    uint64_t pc = 0;
+    uc_reg_read(uc, return_pc_const(uc), &pc);
+ 
     if(type == UC_MEM_WRITE_UNMAPPED || type == UC_MEM_WRITE_PROT) {
         printf("        >>> [ 0x%08lx ] INVALID Write: addr= 0x%016lx size=%d data=0x%016lx\n", pc, address, size, value);
     } else if (type == UC_MEM_READ_UNMAPPED || type == UC_MEM_READ_PROT){
@@ -373,10 +368,8 @@ void hook_mmio_access(uc_engine *uc, uc_mem_type type,
 {
     uint32_t pc = 0;
     latest_mmio_fuzz_access_index = fuzz_cursor;
-    uint32_t arch_pc = get_current_pc(uc);
     
-    uc_reg_read(uc, arch_pc, &pc);
-    // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
+    uc_reg_read(uc, return_pc_const(uc), &pc);
 
     // TODO: optimize this lookup
     for (int i = 0; i < num_ignored_addresses; ++i)
@@ -530,10 +523,9 @@ void linear_mmio_model_handler(uc_engine *uc, uc_mem_type type, uint64_t addr, i
     model_state->val += model_state->step;
 
     #ifdef DEBUG
-    uint32_t arch_pc = get_current_pc(uc);
     uint32_t pc;
 
-    uc_reg_read(uc, arch_pc, &pc);
+    uc_reg_read(uc, return_pc_const(uc), &pc);
     // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
     printf("[0x%08x] Native Linear MMIO handler: [0x%08lx] = [0x%x]\n", pc, addr, model_state->val); fflush(stdout);
     #endif
@@ -546,11 +538,9 @@ void constant_mmio_model_handler(uc_engine *uc, uc_mem_type type, uint64_t addr,
     uint64_t val = model_state->val;
 
     #ifdef DEBUG
-    uint32_t arch_pc = get_current_pc(uc);
     uint32_t pc;
  
-    uc_reg_read(uc, arch_pc, &pc);
-    // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
+    uc_reg_read(uc, return_pc_const(uc), &pc);
     printf("[0x%08x] Native Constant MMIO handler: [0x%08lx] = [0x%lx]\n", pc, addr, val); fflush(stdout);
     #endif
 
@@ -573,10 +563,9 @@ void bitextract_mmio_model_handler(uc_engine *uc, uc_mem_type type, uint64_t add
     uc_mem_write(uc, addr, &result_val, size);
 
     #ifdef DEBUG
-    uint32_t arch_pc = get_current_pc(uc);
     uint32_t pc;
 
-    uc_reg_read(uc, arch_pc, &pc);
+    uc_reg_read(uc, return_pc_const(uc), &pc);
 
     // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
     printf("[0x%08x] Native Bitextract MMIO handler: [0x%08lx] = [0x%lx] from %d byte input: %lx\n", pc, addr, result_val, config->byte_size, fuzzer_val); fflush(stdout);
@@ -589,11 +578,9 @@ void value_set_mmio_model_handler(uc_engine *uc, uc_mem_type type, uint64_t addr
     uint64_t result_val;
     uint8_t fuzzer_val = 0;
     #ifdef DEBUG
-    uint32_t arch_pc = get_current_pc(uc);
     uint32_t pc;
 
-    uc_reg_read(uc, arch_pc, &pc);
-    // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
+    uc_reg_read(uc, return_pc_const(uc), &pc);
     #endif
 
     if(config->num_vals > 1) {
@@ -696,10 +683,8 @@ uc_err register_value_set_mmio_models(uc_engine *uc, uint64_t *starts, uint64_t 
     for (int i = 0; i < num_ranges; ++i) {
         #ifdef DEBUG
         uint32_t pc;
-        uint32_t arch_pc = get_current_pc(uc);
 
-        uc_reg_read(uc, arch_pc, &pc);
-        // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
+        uc_reg_read(uc, return_pc_const(uc), &pc);
         printf("Registering value set model: [%x] %lx - %lx with numvalues, value_set: %d, [", pcs[i], starts[i], ends[i], value_nums[i]);
         for (uint32_t j = 0; j < value_nums[i]; ++j) {
             if(j) {
@@ -865,17 +850,14 @@ static inline int run_single(uc_engine *uc) {
     uint64_t pc = 0;
     int sig = -1;
     uc_hook tmp;
-    uint32_t arch_pc = get_current_pc(uc);
-    uint32_t pc_mark = get_pc_mark(uc);
+
     uc_hook_add(uc, &tmp, UC_HOOK_CODE, hook_code, NULL, 1, 0);
 
-    uc_reg_read(uc, arch_pc, &pc);
-
-    // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
+    uc_reg_read(uc, return_pc_const(uc), &pc);
 
     // status = uc_emu_start(uc, pc | 1, 0, 0, 0);
     
-    status = uc_emu_start(uc, pc | pc_mark, 0, 0, 0);
+    status = uc_emu_start(uc, pc | return_addr_mark(uc), 0, 0, 0);
 
     if(custom_exit_reason != UC_ERR_OK) {
         status = custom_exit_reason;
@@ -883,7 +865,7 @@ static inline int run_single(uc_engine *uc) {
 
     if (status != UC_ERR_OK) {
         if(do_print_exit_info) {
-            uc_reg_read(uc, arch_pc, &pc);
+            uc_reg_read(uc, return_pc_const(uc), &pc);
             printf("Execution failed with error code: %d -> %s, pc: 0x%lx\n", status, uc_strerror(status), pc);
             print_regions(uc);
             print_state(uc);
@@ -945,10 +927,9 @@ void fuzz_consumption_timeout_cb(uc_engine *uc, uint32_t id, void *user_data) {
 #ifdef DEBUG_INJECT_TIMER
 void test_timeout_cb(uc_engine *uc, uint32_t id, void *user_data) {
     uint32_t pc;
-    uint32_t arch_pc = get_current_pc(uc);
 
    if(!is_discovery_child) {
-        uc_reg_read(uc, arch_pc, &pc);
+        uc_reg_read(uc, return_pc_const(uc), &pc);
         // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
         printf("Test timer triggered at pc 0x%08x\n", pc);
         fflush(NULL);
@@ -959,9 +940,8 @@ void test_timeout_cb(uc_engine *uc, uint32_t id, void *user_data) {
 void instr_limit_timeout_cb(uc_engine *uc, uint32_t id, void *user_data) {
     if(do_print_exit_info) {
         uint32_t pc;
-        uint32_t arch_pc = get_current_pc(uc);
   
-        uc_reg_read(uc, arch_pc, &pc);
+        uc_reg_read(uc, return_pc_const(uc), &pc);
         printf("Ran into instruction limit of %lu at 0x%08x - exiting\n", get_timer_reload_val(instr_limit_timer_id), pc);
     }
     do_exit(uc, UC_ERR_OK);
@@ -1092,13 +1072,8 @@ uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path)
     uint64_t pc = 0;
     fflush(stdout);
     // freopen("/home/user/all_logs.txt", "a+", stdout);
-    uint32_t arch_pc = get_current_pc(uc);
-    uint64_t pc_mark = get_pc_mark(uc);
 
-
-
-    uc_reg_read(uc, arch_pc, &pc);
-    //uc_reg_read(uc, UC_ARM_REG_PC, &pc);
+    uc_reg_read(uc, return_pc_const(uc), &pc);
     init_bitmap(uc);
 
     /*
@@ -1154,7 +1129,7 @@ uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path)
             set_timer_reload_val(instr_limit_timer_id, required_ticks-2);
 
             // Execute the prefix  
-            if((emu_error = uc_emu_start(uc, pc | pc_mark, 0, 0, 0))) {
+            if((emu_error = uc_emu_start(uc, pc | return_addr_mark(uc), 0, 0, 0))) {
                 printf("[ERROR] Could not execute the first some steps, error code: %d", emu_error);
                 exit(-1);
             }
@@ -1171,7 +1146,7 @@ uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path)
         is_discovery_child = 1;
 
         // uc_err child_emu_status = uc_emu_start(uc, pc | 1, 0, 0, 0);
-        uc_err child_emu_status = uc_emu_start(uc, pc | pc_mark, 0, 0, 0);
+        uc_err child_emu_status = uc_emu_start(uc, pc | return_addr_mark(uc), 0, 0, 0);
 
         // We do not expect to get here. The child should exit by itself in get_fuzz
         printf("[ERROR] Emulation stopped using just the prefix input (%d: %s)\n", child_emu_status, uc_strerror(child_emu_status));
@@ -1198,9 +1173,7 @@ uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path)
 
     if(do_fuzz) {
         uc_fuzzer_reset_cov(uc, 1);
-        // TODO: make it arch-independent
-        uc_reg_read(uc, arch_pc, &pc);
-        // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
+        uc_reg_read(uc, return_pc_const(uc), &pc);
         trigger_snapshotting(uc);
 
         // AFL-compatible Forkserver loop
@@ -1244,7 +1217,6 @@ uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path)
     } else {
         puts("Running without a fork server");
         duplicate_exit = false;
-       // trigger_snapshotting(uc);
         // Not running under fork server
         int sig = run_single(uc);
 
@@ -1255,8 +1227,7 @@ uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path)
             } else {
                 // Non-crashing exit (includes different timeouts)
                 uint32_t pc;
-                uc_reg_read(uc, arch_pc, &pc);
-                // uc_reg_read(uc, UC_ARM_REG_PC, &pc);
+                uc_reg_read(uc, return_pc_const(uc), &pc);
                 printf("Exited without crash at 0x%08x - If no other reason, we ran into one of the limits\n", pc);
             }
         }
