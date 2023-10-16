@@ -63,7 +63,7 @@ def configure_unicorn(args):
     # uc = create_unicorn_instance(config["arch"], config["endianness"])
     uc = create_unicorn_from_config(config["arch"], config["endianness"])
     
-    uc.symbols, uc.syms_by_addr = parse_symbols(config)
+    uc.symbols, uc.syms_by_addr = parse_symbols(uc, config)
 
     regions = {}
     vtor = globs.NVIC_VTOR_NONE
@@ -240,7 +240,7 @@ def configure_unicorn(args):
                 addr_val = handler_desc['addr']
                 # This handler is always at a fixed address
                 if isinstance(addr_val, int):
-                    addr_val &= 0xFFFFFFFE
+                    addr_val = uc.specifics.return_addr(addr_val, False)
                     # addr_val &= uc.bit_cleaner # Clear thumb bit in case of cortex-M
                     uc.syms_by_addr[addr_val] = fname
             else:

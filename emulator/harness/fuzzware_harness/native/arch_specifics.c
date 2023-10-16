@@ -115,15 +115,18 @@ int return_num_dumped_regs(uc_engine *uc){
 }
 
 
-uint64_t return_addr_mark(uc_engine *uc){
+uint64_t return_addr(uc_engine *uc, uint64_t addr, bool thumb_mode){
     uint32_t arch = uc_read_arch(uc);
 
     if (arch == UC_ARCH_ARM)
-        return 0x1; 
+        if (thumb_mode)
+            return addr | 1;
+        else
+            return addr & 0xFFFFFFFE;
 
     if (arch == UC_ARCH_MIPS)
-        return 0;
+        return addr;
 
     // by default
-    return 0;
+    return addr;
 }

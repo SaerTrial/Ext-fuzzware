@@ -190,6 +190,10 @@ class ArchSpecificsMIPS32(ArchSpecifics):
 
         raise KeyError("entry_point is not found")       
 
+    def return_addr(self, addr, thumb_mode = True):
+        return addr
+
+
     @property
     def target_xml(self):
         return mips32_target_xml

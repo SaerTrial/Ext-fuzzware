@@ -37,6 +37,8 @@ THUMB_RET = b'\x70\x47'
 
 native_ret_regex        = r"retu?r?n?_0?x?([0-9a-fA-F]+)"
 native_inline_asm_regex = r"inline_asm_([0-9a-fA-f]+)"
+
+# TODO: arch-specific
 def patch_native_handler(uc, addr, magic_funcname):
     logger.info(f"Native patch handler looking at {magic_funcname}")
 
@@ -70,14 +72,15 @@ def add_func_hook(uc, addr, func, do_return=True):
     If func is None (and do_return is True) this is effectively a nop-out without using a real hook!
     Makes it faster to not have to call into python for hooks we don't need.
     """
-
-    real_addr = addr & 0xFFFFFFFE  # Drop the thumb bit
+    
+    real_addr = uc.specifics.return_addr(addr, False)  # Drop the thumb bit
     if func:
         if isinstance(func, str):
             try:
                 # Resolve the function name
                 mod_name, func_name = func.rsplit('.', 1)
                 if mod_name == "native":
+                    # TODO: consider other archs
                     patch_native_handler(uc, addr, func_name)
                     return
 
@@ -96,6 +99,8 @@ def add_func_hook(uc, addr, func, do_return=True):
         func_hooks[real_addr].append(func_obj)
 
     if do_return:
+        # TODO: consider return instructions of other architectures
+        # For MIPS, jr $ra
         uc.mem_write(real_addr, THUMB_RET)
 
 

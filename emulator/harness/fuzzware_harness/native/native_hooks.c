@@ -849,15 +849,14 @@ static inline int run_single(uc_engine *uc) {
     int status;
     uint64_t pc = 0;
     int sig = -1;
-    uc_hook tmp;
-
+    
     // uc_hook_add(uc, &tmp, UC_HOOK_CODE, hook_code, NULL, 1, 0);
 
     uc_reg_read(uc, return_pc_const(uc), &pc);
 
     // status = uc_emu_start(uc, pc | 1, 0, 0, 0);
     
-    status = uc_emu_start(uc, pc | return_addr_mark(uc), 0, 0, 0);
+    status = uc_emu_start(uc, return_addr(uc, pc, true), 0, 0, 0);
 
     if(custom_exit_reason != UC_ERR_OK) {
         status = custom_exit_reason;
@@ -1129,7 +1128,7 @@ uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path)
             set_timer_reload_val(instr_limit_timer_id, required_ticks-2);
 
             // Execute the prefix  
-            if((emu_error = uc_emu_start(uc, pc | return_addr_mark(uc), 0, 0, 0))) {
+            if((emu_error = uc_emu_start(uc, return_addr(uc, pc, true), 0, 0, 0))) {
                 printf("[ERROR] Could not execute the first some steps, error code: %d", emu_error);
                 exit(-1);
             }
@@ -1146,7 +1145,7 @@ uc_err emulate(uc_engine *uc, char *p_input_path, char *prefix_input_path)
         is_discovery_child = 1;
 
         // uc_err child_emu_status = uc_emu_start(uc, pc | 1, 0, 0, 0);
-        uc_err child_emu_status = uc_emu_start(uc, pc | return_addr_mark(uc), 0, 0, 0);
+        uc_err child_emu_status = uc_emu_start(uc, return_addr(uc, pc, true), 0, 0, 0);
 
         // We do not expect to get here. The child should exit by itself in get_fuzz
         printf("[ERROR] Emulation stopped using just the prefix input (%d: %s)\n", child_emu_status, uc_strerror(child_emu_status));

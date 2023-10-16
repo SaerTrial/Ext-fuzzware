@@ -62,15 +62,16 @@ def parse_address_value(symbols, value, enforce=True):
         return None
 
 
-def parse_symbols(config):
+def parse_symbols(uc, config):
     name_to_addr = {}
     addr_to_name = {}
+
 
     # Create the symbol table
     if 'symbols' in config:
         try: 
-            addr_to_name = {k & 0xFFFFFFFE: v for k, v in config['symbols'].items()}
-            name_to_addr = {v: k & 0xFFFFFFFE for k, v in config['symbols'].items()}
+            addr_to_name = {uc.specifics.return_addr(k, False): v for k, v in config['symbols'].items()}
+            name_to_addr = {v: uc.specifics.return_addr(k, False) for k, v in config['symbols'].items()}
         except TypeError as e:
             logger.error("Type error while parsing symbols. The symbols configuration was likely mis-formatted. The format is 0xdeadbeef: my_symbol_name. Raising original error.")
             raise e

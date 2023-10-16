@@ -131,6 +131,12 @@ class ArchSpecificsARMCortexM(ArchSpecifics):
 
         return entry_point        
 
+    def return_addr(self, addr, thumb_mode = True):
+        if thumb_mode:
+            return addr | 1
+
+        return addr & 0xFFFFFFFE
+
     @property
     def target_xml(self):
         return arm_target_xml

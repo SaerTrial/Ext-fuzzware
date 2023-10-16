@@ -221,8 +221,8 @@ def add_sparkles(uc, args):
                 bp_addr = int(bp, 0)
             except ValueError:
                 bp_addr = util.parse_address_value(uc.symbols, bp)
-
-            breakpoints.append(bp_addr & 0xFFFFFFFE)
+            
+            breakpoints.append(uc.specifics.return_addr(bp_addr, False))
         uc.hook_add(unicorn.UC_HOOK_BLOCK_UNCONDITIONAL, breakpoint_handler)
 
     return uc

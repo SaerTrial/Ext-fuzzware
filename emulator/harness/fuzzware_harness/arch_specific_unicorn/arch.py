@@ -34,6 +34,9 @@ class ArchSpecifics:
     def read_entry_point(self, config, image_base):
         pass
 
+    def return_addr(self, addr, thumb_mode = True):
+        pass
+
     @property
     def target_xml(self):
         pass
