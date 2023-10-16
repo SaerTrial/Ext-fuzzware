@@ -9,10 +9,6 @@ class Const:
 
     def __getattribute__(self, const_name):
         pass
-    
-    @property
-    def all(self):
-        pass
 
 
 class ArchSpecifics:
