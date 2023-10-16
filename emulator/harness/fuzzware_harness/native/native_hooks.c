@@ -851,7 +851,7 @@ static inline int run_single(uc_engine *uc) {
     int sig = -1;
     uc_hook tmp;
 
-    uc_hook_add(uc, &tmp, UC_HOOK_CODE, hook_code, NULL, 1, 0);
+    // uc_hook_add(uc, &tmp, UC_HOOK_CODE, hook_code, NULL, 1, 0);
 
     uc_reg_read(uc, return_pc_const(uc), &pc);
 
