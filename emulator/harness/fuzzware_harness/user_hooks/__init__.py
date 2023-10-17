@@ -35,6 +35,14 @@ THUMB_NOP = b"\xC0\x46"
 # bx lr
 THUMB_RET = b'\x70\x47'
 
+""" MIPS
+li, v0, 0xBF811078 == b"\x81\xBF\x02\x3C\x78\x10\x42\x24"
+jr $ra == b"\x08\x00\xE0\x03"
+nop == b"\x00\x00\x00\x00"
+"""
+
+
+
 native_ret_regex        = r"retu?r?n?_0?x?([0-9a-fA-F]+)"
 native_inline_asm_regex = r"inline_asm_([0-9a-fA-f]+)"
 
@@ -48,10 +56,11 @@ def patch_native_handler(uc, addr, magic_funcname):
         if val > 1<<32:
             logger.error(f"[Native handler] too large value {val:x}")
             sys.exit(1)
-        patch = LDR_R0_LITERAL_POOL_RET + struct.pack("<I", val)
+        patch = uc.specifics.patch.load_and_ret(addr, val)
+        # patch = LDR_R0_LITERAL_POOL_RET + struct.pack("<I", val)
         # For unaligned addresses, align the instruction first for a correct pc-relative load
-        if addr & 2 == 2:
-            patch = THUMB_NOP + patch
+        # if addr & 2 == 2:
+        #     patch = THUMB_NOP + patch
     elif re.match(native_inline_asm_regex, magic_funcname):
         inline_patch_hex = re.match(native_inline_asm_regex, magic_funcname).group(1)
         try:
@@ -80,7 +89,6 @@ def add_func_hook(uc, addr, func, do_return=True):
                 # Resolve the function name
                 mod_name, func_name = func.rsplit('.', 1)
                 if mod_name == "native":
-                    # TODO: consider other archs
                     patch_native_handler(uc, addr, func_name)
                     return
 
@@ -99,9 +107,8 @@ def add_func_hook(uc, addr, func, do_return=True):
         func_hooks[real_addr].append(func_obj)
 
     if do_return:
-        # TODO: consider return instructions of other architectures
         # For MIPS, jr $ra
-        uc.mem_write(real_addr, THUMB_RET)
+        uc.mem_write(real_addr, uc.specifics.patch.ret())
 
 
 def func_hook_handler(uc, addr, size, user_data):

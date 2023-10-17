@@ -6,10 +6,12 @@ from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_PC
 from ...exit import do_exit
 
 def return_zero(uc):
-    uc.reg_write(UC_ARM_REG_R0, 0)
+    uc.specifics.context.return_zero()
+    # use sparkle, e.g., uc.regs.r0 = 0
+    # uc.reg_write(UC_ARM_REG_R0, 0)
 
 def crash(uc):
-    print("[*] Crashing handler at 0x{:08x} triggered, crashing now".format(uc.reg_read(UC_ARM_REG_PC)))
+    print("[*] Crashing handler at 0x{:08x} triggered, crashing now".format(uc.regs.pc))
     os.kill(os.getpid(), signal.SIGSEGV)
 
 def exit(uc):

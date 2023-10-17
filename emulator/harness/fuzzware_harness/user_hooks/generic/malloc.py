@@ -84,35 +84,46 @@ def _realloc(uc, addr, size):
 
     return tar_addr
 
+
 def free(uc):
-    addr = uc.reg_read(UC_ARM_REG_R0)
-    print("freeing 0x{:x}".format(addr))
-    if addr != 0:
-        _free(uc, addr)
+    # addr = uc.reg_read(UC_ARM_REG_R0)
+    # print("freeing 0x{:x}".format(addr))
+    # if addr != 0:
+    #     _free(uc, addr)
+    uc.specifics.userhooks.free()
 
 def calloc(uc):
-    size = uc.reg_read(UC_ARM_REG_R0)
-    res = _calloc(uc, size)
-    uc.reg_write(UC_ARM_REG_R0, res)
-    print("malloc. size=0x{:x} -> 0x{:x}".format(size, res))
+    # size = uc.reg_read(UC_ARM_REG_R0)
+    # res = _calloc(uc, size)
+    # uc.reg_write(UC_ARM_REG_R0, res)
+    # print("malloc. size=0x{:x} -> 0x{:x}".format(size, res))
+
+    uc.specifics.userhooks.calloc()
+
 
 def realloc(uc):
-    addr = uc.reg_read(UC_ARM_REG_R0)
-    size = uc.reg_read(UC_ARM_REG_R1)
-    print("realloc. addr: 0x{:x}, size=0x{:x}".format(addr, size))
-    res = _realloc(uc, addr, size)
-    uc.reg_write(UC_ARM_REG_R0, res)
+    # addr = uc.reg_read(UC_ARM_REG_R0)
+    # size = uc.reg_read(UC_ARM_REG_R1)
+    # print("realloc. addr: 0x{:x}, size=0x{:x}".format(addr, size))
+    # res = _realloc(uc, addr, size)
+    # uc.reg_write(UC_ARM_REG_R0, res)
+
+    uc.specifics.userhooks.realloc()
 
 
 def malloc(uc):
-    size = uc.reg_read(UC_ARM_REG_R0)
-    res = _malloc(uc, size)
-    uc.reg_write(UC_ARM_REG_R0, res)
-    print("malloc. size=0x{:x} -> 0x{:x}".format(size, res))
+    # size = uc.reg_read(UC_ARM_REG_R0)
+    # res = _malloc(uc, size)
+    # uc.reg_write(UC_ARM_REG_R0, res)
+    # print("malloc. size=0x{:x} -> 0x{:x}".format(size, res))
+    uc.specifics.userhooks.malloc()
+
 
 def memp_free(uc):
-    addr = uc.reg_read(UC_ARM_REG_R1)
-    _free(uc, addr)
+    # addr = uc.reg_read(UC_ARM_REG_R1)
+    # _free(uc, addr)
+    uc.specifics.userhooks.memp_free()
+
 
 def mem_free(uc):
     free(uc)

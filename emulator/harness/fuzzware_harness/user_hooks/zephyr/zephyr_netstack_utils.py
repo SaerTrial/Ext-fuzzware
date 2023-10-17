@@ -3,6 +3,8 @@ from binascii import hexlify
 
 from unicorn import UcError
 
+# TODO: understand zephyr OS of other archs
+
 
 def dump_net_buf_simple(uc, buf):
     length, size = uc.mem.u16(buf+4, 2)

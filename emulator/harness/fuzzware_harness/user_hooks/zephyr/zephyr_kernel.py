@@ -1,5 +1,6 @@
 from unicorn import UcError
 
+# TODO: understand zephyr OS of other archs
 
 def dump_timeout(uc, timeout):
     cnt = 0

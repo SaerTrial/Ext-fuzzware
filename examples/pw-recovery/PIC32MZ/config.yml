@@ -27,7 +27,9 @@ memory_map:
     base_addr:  0xbf800000
     size: 0x100000
     permissions: rw-
-  
+handlers:
+  SYS_Initialize: null
+ 
 arch: MIPS32
 endianness: LE
 initial_sp: 0x8007fff8

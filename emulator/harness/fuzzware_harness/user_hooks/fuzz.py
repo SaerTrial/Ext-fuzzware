@@ -20,4 +20,5 @@ def load_fuzz(file_path):
 def return_fuzz_byte(uc):
     global fuzz
     c = get_fuzz(uc, 1)
-    uc.reg_write(UC_ARM_REG_R0, ord(c))
+    # uc.reg_write(UC_ARM_REG_R0, ord(c))
+    uc.specifics.context.function_args(1)[0] = ord(c)

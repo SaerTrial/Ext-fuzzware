@@ -1,7 +1,12 @@
-from .arch import Const, ArchSpecifics
+from .arch import Const, ArchSpecifics, logger, Patch, Context, UserHooks
 from unicorn.mips_const import *
 from unicorn import *
 import archinfo
+import struct
+from ..user_hooks.generic.malloc import _free, _malloc, _realloc, _calloc
+import sys
+from string import digits
+from ..user_hooks.fuzz import get_fuzz
 
 endianness = {"LE":UC_MODE_LITTLE_ENDIAN,
     "BE": UC_MODE_BIG_ENDIAN
@@ -150,12 +155,210 @@ class ConstMIPS32(Const):
                 return getattr(mips_const, x)
         return object.__getattribute__(self, const_name)
 
+""" MIPS
+li, v0, 0xBF811078 == b"\x81\xBF\x02\x3C\x78\x10\x42\x24"
+li, v1, 0xAA996655 == b"\x99\xAA\x03\x3C\x55\x66\x63\x24
+jr $ra == b"\x08\x00\xE0\x03"
+nop == b"\x00\x00\x00\x00"
+"""
+
+LOAD_V0 = None
+MIPS32_RET = b"\x08\x00\xE0\x03"
+MIPS32_NOP = b"\x00\x00\x00\x00"
+
+class PatchMIPS32Patch(Patch):
+    def __init__(self, endness) -> None:
+        super(PatchMIPS32Patch, self).__init__(endness)
+        self._endness = endness
+    
+    def load_and_ret(self, addr, val = None, reg = "v0"):
+        if self._endness == "LE":
+            packed = struct.pack("<I", val)
+        else:
+            packed = struct.pack(">I", val)
+        
+        patch = MIPS32_RET
+
+        opcode = None
+        if reg == "v0":
+            opcode = b"\x02\x3c\x63\x24"
+        elif reg == "v1":
+            opcode = b"\x03\x3c\x42\x24"
+        else:
+            raise ValueError("a wrong return reg is set")
+
+        if val != None:
+            LOAD_V0 = b"".join([packed[0].to_bytes(1, "little"), 
+                    packed[1].to_bytes(1, "little"), 
+                    opcode[0].to_bytes(1, "little"), 
+                    opcode[1].to_bytes(1, "little"),
+                    packed[2].to_bytes(1, "little"),
+                    packed[3].to_bytes(1, "little"),
+                    opcode[2].to_bytes(1, "little"),
+                    opcode[3].to_bytes(1, "little")]) + MIPS32_RET
+            patch = LOAD_V0 + MIPS32_RET
+
+        return patch
+
+    def ret(self):
+        return MIPS32_RET
+
+    def nop(self):
+        return MIPS32_NOP
+
+class ContextMIPS32(Context):
+    def __init__(self, uc) -> None:
+        self._uc = uc
+
+    def print_context(self):
+        print("==== State ====")
+        v0 = self._uc.regs.v0
+        v1 = self._uc.regs.v1
+        a0 = self._uc.regs.a0
+        a1 = self._uc.regs.a1
+        a2 = self._uc.regs.a2
+        a3 = self._uc.regs.a3
+        sp = self._uc.regs.sp
+        ra = self._uc.regs.ra
+        pc = self._uc.regs.pc
+        print("v0: 0x{:x}\nv1: 0x{:x}\na0: 0x{:x}\na1: 0x{:x}\na2: 0x{:x}\na3: 0x{:x}\nsp: 0x{:x}\nra: 0x{:x}\npc: 0x{:x}".format(v0, v1, a0, a1, a2, a3, sp, ra, pc), flush=True)
+   
+    def print_args(self, arg_num = 4):
+        pc = self._uc.regs.pc
+        fn_name = self._uc.syms_by_addr.get(pc, None)
+        if fn_name is None:
+            fn_name = f"UNKNOWN_FUNC_{pc:08x}"
+
+        regvals = (self._uc.regs.a0, self._uc.regs.a1, self._uc.regs.a2, self._uc.regs.a3)       
+        args_text = ','.join([f"{addr:#010x}" for addr in regvals[0:arg_num]])
+        print(f"{fn_name}({args_text})", flush=True)
+    
+    def function_args(self, arg_num = 4):
+        return (self._uc.regs.a0, self._uc.regs.a1, self._uc.regs.a2, self._uc.regs.a3)[0:arg_num]    
+
+    def return_zero(self):
+        self._uc.regs.v0 = 0
+        self._uc.regs.v1 = 0
+
+
+class UserHooksMIPS32(UserHooks):
+    def __init__(self, uc):
+        self._uc = uc
+    
+    def calloc(self):
+        nitem = self._uc.regs.a0
+        size = self._uc.regs.a1
+        res = _calloc(self._uc, size * nitem)
+        self._uc.regs.v0 = res
+        print("malloc. size=0x{:x} -> 0x{:x}".format(size * nitem, res))
+
+    def realloc(self):
+        addr = self._uc.regs.a0
+        size = self._uc.regs.a1
+        print("realloc. addr: 0x{:x}, size=0x{:x}".format(addr, size))
+        res = _realloc(self._uc, addr, size)
+        self._uc.regs.v0 = res
+
+    def malloc(self):
+        size = self._uc.regs.a0
+        res = _malloc(self._uc, size)
+        self._uc.regs.v0 = res
+        print("malloc. size=0x{:x} -> 0x{:x}".format(size, res))
+
+    def memp_free(self):
+        addr = self._uc.regs.a1
+        _free(self._uc, addr)
+
+    def free(self):
+        addr = self._uc.regs.a0
+        print("freeing 0x{:x}".format(addr))
+        if addr != 0:
+            _free(self._uc, addr)   
+
+    def putchar(self):
+        c = self._uc.regs.a0
+        assert c < 256
+        sys.stdout.write(chr(c))
+        sys.stdout.flush()
+
+    def printf(self):
+        # for now just print out the fmt string
+        ptr = self._uc.regs.a0
+        assert ptr != 0
+        msg = self._uc.mem_read(ptr, 256)
+
+        if b'\0' in msg:
+            msg = msg[:msg.find(b'\0')]
+        output = b''
+
+        # just allow a limited number of arguments
+        args = [self._uc.regs.a1, self._uc.regs.a2, self._uc.regs.a3]
+        args.reverse()
+
+        prev_ind, cursor = 0, 0
+        while args:
+            cursor = msg.find(b"%", prev_ind)
+
+            if cursor == -1:
+                break
+
+            output += msg[prev_ind:cursor]
+            cursor += 1
+
+            num_str = b""
+            while msg[cursor] in digits.encode():
+                num_str += msg[cursor]
+                cursor += 1
+            while msg[cursor] == ord('l'):
+                cursor += 1
+
+            if msg[cursor] == ord('s'):
+                string_addr = args.pop()
+                s = self._uc.mem_read(string_addr, 1)
+                while s[-1] != ord("\0"):
+                    string_addr += 1
+                    s += self._uc.mem_read(string_addr, 1)
+                output += s[:-1]
+            elif msg[cursor] == ord('d'):
+                val = args.pop()
+                output += f"{val:d}".encode()
+            elif msg[cursor] in (ord('x'), ord('p')):
+                val = args.pop()
+                output += f"{val:x}".encode()
+
+            cursor += 1
+            prev_ind = cursor
+
+        output += msg[prev_ind:]
+        sys.stdout.write(output.decode('latin1'))
+        sys.stdout.flush()        
+
+    def readline(self):
+        ptr = self._uc.regs.a0
+        l = self._uc.regs.a1
+        assert ptr != 0
+        data = b''
+        while len(data) < l:
+            data += get_fuzz(self._uc, 1)
+            if data.endswith(b'\n'):
+                break
+        self._uc.mem_write(ptr, data)
+        self._uc.regs.v0 = 0
+        # echo
+        sys.stdout.write(data.decode('latin1'))
+        sys.stdout.flush()
+
 
 class ArchSpecificsMIPS32(ArchSpecifics):
     def __init__(self, endness):
         super(ArchSpecificsMIPS32, self).__init__(endness)
         self._endness = endness
         self._uc = Uc(UC_ARCH_MIPS, UC_MODE_MIPS32 | endianness[endness])
+        self._const = ConstMIPS32()
+        self._archinfo_registers = archinfo.ArchMIPS32().register_list[0:30] + archinfo.ArchMIPS32().register_list[31:33]
+        self._patch = PatchMIPS32Patch(endness)
+        self._context = ContextMIPS32(self._uc)
+        self._userhooks = UserHooksMIPS32(self._uc)
         ArchSpecificsMIPS32.mips_enable_DSP(self._uc)
 
     @staticmethod
@@ -167,8 +370,8 @@ class ArchSpecificsMIPS32(ArchSpecifics):
 
     @property
     def const(self):
-        return ConstMIPS32()
-
+        return self._const
+    
     @property
     def gdb_registers(self):
         return mips_registers
@@ -176,7 +379,7 @@ class ArchSpecificsMIPS32(ArchSpecifics):
     @property
     def archinfo_registers(self):
         # unicorn doesn't support s8
-        return archinfo.ArchMIPS32().register_list[0:30] + archinfo.ArchMIPS32().register_list[31:33]
+        return self._archinfo_registers
 
     def read_initial_sp(self, config, image_base):
         if "initial_sp" in config:
@@ -210,3 +413,15 @@ class ArchSpecificsMIPS32(ArchSpecifics):
     @property
     def snapshot_reg_cons(self):
         return snapshot_reg_cons
+    
+    @property
+    def patch(self):
+        return self._patch
+    
+    @property
+    def context(self):
+        return self._context
+    
+    @property
+    def userhooks(self):
+        return self._userhooks

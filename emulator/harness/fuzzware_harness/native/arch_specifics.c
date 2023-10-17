@@ -118,11 +118,14 @@ int return_num_dumped_regs(uc_engine *uc){
 uint64_t return_addr(uc_engine *uc, uint64_t addr, bool thumb_mode){
     uint32_t arch = uc_read_arch(uc);
 
-    if (arch == UC_ARCH_ARM)
-        if (thumb_mode)
+    if (arch == UC_ARCH_ARM) {
+        if (thumb_mode) {
             return addr | 1;
-        else
+        }
+        else {
             return addr & 0xFFFFFFFE;
+        }
+    }
 
     if (arch == UC_ARCH_MIPS)
         return addr;

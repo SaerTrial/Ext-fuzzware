@@ -48,8 +48,6 @@ class SparklyRegs():
             object.__setattr__(self, regname, val)
         myuc = object.__getattribute__(self, '_uc')
 
-
-
         for x in dir(myuc.specifics.all_const):
             if x.endswith('_' + regname.upper()):
                 return myuc.reg_write(getattr(myuc.specifics.const, regname), val)
