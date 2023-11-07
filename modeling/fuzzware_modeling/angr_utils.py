@@ -5,7 +5,7 @@ import angr
 import logging
 l = logging.getLogger("utils")
 
-from .arch_specific.arm_thumb_regs import scope_reg_names, return_reg
+# from .arch_specific.arm_thumb_regs import scope_reg_names, return_reg
 
 MAX_ACTIVE_STATES = 100
 
@@ -27,8 +27,7 @@ def has_conditional_statements(state, unconditionals_cache=None):
     for bbl_addr in state.history.bbl_addrs:
         if unconditionals_cache is not None and bbl_addr in unconditionals_cache:
             continue
-        
-        # TODO: arch-specific
+
         block = state.project.factory.block(bbl_addr, thumb=True).vex
         # block = state.project.factory.block(bbl_addr | 1).vex
         if list(block.exit_statements):
@@ -44,11 +43,19 @@ def has_conditional_statements(state, unconditionals_cache=None):
     return False
 
 def contains_var(ast, var):
-    return var._encoded_name.decode() in ast.variables
+    found = False
+    # assuming that state_returns_val will evaluate it against two return registers for MIPS32
+    if isinstance(ast, tuple):
+        for each_ast in ast:
+            found |= var._encoded_name.decode() in each_ast.variables
+        return found
+    else:
+        return var._encoded_name.decode() in ast.variables
 
 def in_scope_register_values(state):
+    scope_reg_names = state.liveness.base_snapshot.specific_arch.scope_reg_names
     if state.liveness.returned:
-        return [return_reg(state)]
+        return [*state.liveness.base_snapshot.specific_arch.return_reg(state)]
     else:
         return [getattr(state.regs, name) for name in scope_reg_names]
 
@@ -65,7 +72,7 @@ def is_ast_mmio_address(state, ast):
     return is_mmio_address(state, addr)
 
 def state_returns_val(state):
-    return (not state.globals['dead_write_to_env']) and any([contains_var(return_reg(state), var) for var in state.liveness.tracked_vars])
+    return (not state.globals['dead_write_to_env']) and any([contains_var(state.liveness.base_snapshot.specific_arch.return_reg(state), var) for var in state.liveness.tracked_vars])
 
 def state_vars_out_of_scope(state):
     # We wrote an mmio value to the environment. Definitely not dead
@@ -90,7 +97,7 @@ def state_contains_tracked_mmio_path_constraints(state):
             constraint = action.constraint
             if contains_var(constraint, var):
                 # If the variable is in the constraints, make sure it is not an instruction signal handler
-                # TODO: arch-specific
+                # Thumb mode here doesn't matter as angr knows its operating architecture.
                 block = state.project.factory.block(action.ins_addr, num_inst=1, thumb=True)
                 if [ jk for jk in block.vex.constant_jump_targets_and_jumpkinds.values() if jk.startswith("Ijk_Sig") ]:
                     l.info("Skipping signal related path constraint on mmio access")

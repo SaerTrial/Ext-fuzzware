@@ -49,15 +49,19 @@ class ArchSpecificsMIPS32(ArchSpecifics):
         
         self.newly_added_constraints_reg_names = self.scope_reg_names
 
+        self.scratch_reg_names = ('a0', 'a1', 'a2', 'a3', 't4', 't5', 't6', 't7', 't8', 't9')
+
         if endness == "LE":
             self._arch = archinfo.ArchMIPS32(endness='Iend_LE')
+            self._endness = archinfo.Endness.LE
         else:
             self._arch = archinfo.ArchMIPS32(endness='Iend_BE')
+            self._endness = archinfo.Endness.BE
 
-    def return_reg(self):
-        if self.state is None:
+    def return_reg(self, state):
+        if state is None:
             raise ValueError("State is None")
-        return self.state.regs.v0, self.state.regs.v1
+        return state.regs.v0, state.regs.v1
     
     def translate_reg_name_to_vex_internal_name(self, name):
         name = name.lower()
@@ -79,3 +83,15 @@ class ArchSpecificsMIPS32(ArchSpecifics):
         # MMIO range to be added
         # ISR range
         return [DEFAULT_MMIO_RANGES, (CORTEXM_MMIO_START, CORTEXM_MMIO_END), (ISR_START_IN_ROM, ISR_START_IN_ROM | 0xfff)]
+
+    @property
+    def endianness(self):
+        return self._endness
+    
+    @property
+    def REG_SP(self):
+        return REG_NAME_SP
+    
+    @property
+    def REG_PC(self):
+        return REG_NAME_PC

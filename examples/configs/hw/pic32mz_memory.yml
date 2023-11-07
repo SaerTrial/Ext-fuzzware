@@ -1,5 +1,0 @@
-memory_map:
-  ram:  {base_addr:  0x80000000, size: 0x1ffff, permissions: rw-}
-  mmio: {base_addr:  0xbf800000, size: 0xfffff, permissions: rw-}  
- 
-# datasheet: 

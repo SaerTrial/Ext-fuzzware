@@ -63,7 +63,7 @@ def configure_unicorn(args):
     # uc = create_unicorn_instance(config["arch"], config["endianness"])
     uc = create_unicorn_from_config(config["arch"], config["endianness"])
     
-    uc.symbols, uc.syms_by_addr = parse_symbols(uc, config)
+    uc.symbols, uc.syms_by_addr = parse_symbols(config)
 
     regions = {}
     vtor = globs.NVIC_VTOR_NONE

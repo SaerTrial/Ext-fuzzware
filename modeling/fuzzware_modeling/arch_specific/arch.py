@@ -11,7 +11,9 @@ class ArchSpecifics:
         self.scope_reg_names = ()
         self.regular_register_names = ()
         self.newly_added_constraints_reg_names = ()
+        self.scratch_reg_names = ()
         self._arch = None
+        self._endness = None
 
     def return_reg(self, state): 
         pass
@@ -31,6 +33,10 @@ class ArchSpecifics:
 
     @property
     def quirks(self):
+        pass
+
+    @property
+    def endianness(self):
         pass
 
 

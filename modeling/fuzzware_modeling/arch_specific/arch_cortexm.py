@@ -208,15 +208,19 @@ class ArchSpecificsARMCortexM(ArchSpecifics):
 
         self.newly_added_constraints_reg_names = ('r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r10', 'r11', 'r12', 'lr')
 
+        self.scratch_reg_names = ('r1', 'r2', 'r3', 'lr')
+
         if endness == "LE":
             self._arch = archinfo.ArchARMCortexM(endness='Iend_LE')
+            self._endness = archinfo.Endness.LE
         else:
             self._arch = archinfo.ArchARMCortexM(endness='Iend_BE')
+            self._endness = archinfo.Endness.BE
 
-    def return_reg(self):
-        if self.state is None:
+    def return_reg(self, state):
+        if state is None:
             raise ValueError("State is None")
-        return self.state.regs.r0
+        return state.regs.r0,
     
     def translate_reg_name_to_vex_internal_name(self, name):
         name = name.lower()
@@ -245,4 +249,14 @@ class ArchSpecificsARMCortexM(ArchSpecifics):
         # ISR range
         return [DEFAULT_MMIO_RANGES, (CORTEXM_MMIO_START, CORTEXM_MMIO_END), (NVIC_RET_START, NVIC_RET_START | 0xfff)]
 
+    @property
+    def endianness(self):
+        return self._endness
 
+    @property
+    def REG_SP(self):
+        return REG_NAME_SP
+
+    @property
+    def REG_PC(self):
+        return REG_NAME_PC

@@ -1,7 +1,7 @@
 import angr, claripy
 
 from .angr_utils import contains_var, is_mmio_address, is_ast_mmio_address
-from .arch_specific.arm_thumb_regs import newly_added_constraints_reg_names, REG_NAME_SP
+# from .arch_specific.arm_thumb_regs import newly_added_constraints_reg_names
 
 import logging
 l = logging.getLogger("MMIO")
@@ -35,6 +35,7 @@ def inspect_bp_track_newly_added_constraints(state):
     If a variable now has a specific value, replace the register contents with the value.
     This allows killing references as early as possible.
     """
+    newly_added_constraints_reg_names = state.liveness.base_snapshot.specific_arch.newly_added_constraints_reg_names
     symbolic_regs = [reg_name for reg_name in newly_added_constraints_reg_names if getattr(state.regs, reg_name).symbolic]
     if not symbolic_regs:
         return
@@ -91,7 +92,9 @@ def inspect_bp_trace_liveness_mem(state):
         return
     elif state.globals['path_constrained']:
         state.globals['meaningful_actions_while_constrained'] = True
+    
 
+    REG_NAME_SP = state.liveness.base_snapshot.specific_arch.REG_SP
     if state.inspect.mem_write_address.symbolic and contains_var(state.inspect.mem_write_address, state.liveness.base_snapshot.regvars_by_name[REG_NAME_SP]):
         # Write to local variable
         l.debug("[{:x}] Write to local variable!".format(state.addr))

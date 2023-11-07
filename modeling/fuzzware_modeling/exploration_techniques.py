@@ -4,7 +4,7 @@ import logging
 import angr, claripy
 
 from .angr_utils import contains_var, state_returns_val, MAX_CALL_DEPTH, MAX_BB_VISITS, NON_FORKING_STATE_MAX_BB_VISITS, MAX_ACTIVE_STATES
-from .arch_specific.arm_thumb_regs import return_reg
+# from .arch_specific.arm_thumb_regs import return_reg
 
 l = logging.getLogger("EXPLORE")
 
@@ -50,7 +50,7 @@ class FunctionReturner(angr.exploration_techniques.ExplorationTechnique):
 
     def filter(self, simgr, state, **kwargs):
         if state.liveness.returned:
-            l.critical("State (pc={:x}) returned from initial function: {}. retval: {}".format(state.addr, state, return_reg(state)))
+            l.critical("State (pc={:x}) returned from initial function: {}. retval: {}".format(state.addr, state, state.liveness.base_snapshot.specific_arch.return_reg(state)))
             if state_returns_val(state):
                 l.warning("Function returns val, putting into 'returning_val' stash")
                 return 'returning_val'

@@ -62,16 +62,20 @@ def parse_address_value(symbols, value, enforce=True):
         return None
 
 
-def parse_symbols(uc, config):
+def parse_symbols(config):
     name_to_addr = {}
     addr_to_name = {}
-
+    # TODO: due to the dependency of this function, 
+    # we still use a single thumb bit cleaner here
+    thumb_bit_cleaner = 0xFFFFFFFF
+    if config["arch"] == "ARMCortexM":
+        thumb_bit_cleaner = 0xFFFFFFFE
 
     # Create the symbol table
     if 'symbols' in config:
         try: 
-            addr_to_name = {uc.specifics.return_addr(k, False): v for k, v in config['symbols'].items()}
-            name_to_addr = {v: uc.specifics.return_addr(k, False) for k, v in config['symbols'].items()}
+            addr_to_name = {thumb_bit_cleaner & k: v for k, v in config['symbols'].items()}
+            name_to_addr = {v: thumb_bit_cleaner & k for k, v in config['symbols'].items()}
         except TypeError as e:
             logger.error("Type error while parsing symbols. The symbols configuration was likely mis-formatted. The format is 0xdeadbeef: my_symbol_name. Raising original error.")
             raise e

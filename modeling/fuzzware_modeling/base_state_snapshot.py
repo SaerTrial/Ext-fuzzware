@@ -5,8 +5,8 @@ import re
 import angr, claripy
 
 from .arch_specific import arm_thumb_quirks
-from .arch_specific.arm_thumb_regs import state_snapshot_reg_list, translate_reg_name_to_vex_internal_name, leave_reg_untainted, REG_NAME_PC, REG_NAME_SP
-from .arch_specific.arm_cortexm_mmio_ranges import DEFAULT_MMIO_RANGES, ARM_CORTEXM_MMIO_START, ARM_CORTEXM_MMIO_END
+# from .arch_specific.arm_thumb_regs import state_snapshot_reg_list, translate_reg_name_to_vex_internal_name, leave_reg_untainted, REG_NAME_PC, REG_NAME_SP
+# from .arch_specific.arm_cortexm_mmio_ranges import DEFAULT_MMIO_RANGES, ARM_CORTEXM_MMIO_START, ARM_CORTEXM_MMIO_END
 from .angr_utils import contains_var
 from .fuzzware_utils.config import load_traces_for_state, get_mmio_ranges
 from .arch_specific import identify_arch_from_statefile
@@ -63,7 +63,10 @@ class BaseStateSnapshot:
         # self.mmio_ranges = list(DEFAULT_MMIO_RANGES)
         self.mmio_ranges = list(mmio_and_isr_range[0])
         self.isr_addr_start, self.isr_addr_end = mmio_and_isr_range[2]
-    
+
+        self.endness = None
+        self.specific_arch = None
+
         configured_mmio_ranges = []
         if cfg:
             configured_mmio_ranges = get_mmio_ranges(cfg)
@@ -146,7 +149,7 @@ class BaseStateSnapshot:
                 l.debug("Looking at line: '{}'".format(line.rstrip()))
                 val = int(reg_regex.match(line).group(1), 16)
                 l.info("Restoring reg val: 0x{:x}".format(val))
-                name = translate_reg_name_to_vex_internal_name(name)
+                name = specific_arch.translate_reg_name_to_vex_internal_name(name)
                 regs[name] = val
 
             line = ""
@@ -156,8 +159,10 @@ class BaseStateSnapshot:
             sio = BytesIO(line.encode()+state_file.read().encode())
 
         base_snapshot = BaseStateSnapshot(cfg, specific_arch.mmio_and_isr_range())
+        base_snapshot.endness = specific_arch.endianness
+        base_snapshot.specific_arch = specific_arch
         base_snapshot.bb_trace, base_snapshot.ram_trace, base_snapshot.mmio_trace = (bb_trace, ram_trace, mmio_trace)
-
+        
         project = angr.Project(sio, arch=specific_arch.arch, main_opts={'backend': 'hex', 'entry_point': specific_arch.read_pc(regs, thumb_mode=True)})
 
         # We need the following option in order for CBZ to not screw us over
@@ -170,12 +175,12 @@ class BaseStateSnapshot:
         # apply registers to state
         initial_sp = None
         for name, val in regs.items():
-            if name == REG_NAME_PC:
+            if name == specific_arch.REG_PC:
                 self.initial_pc = specific_arch.read_pc(regs, thumb_mode=True)
                 # val |= 1
                 continue
 
-            if leave_reg_untainted(name):
+            if specific_arch.leave_reg_untainted(name):
                 ast = claripy.BVV(val, 32)
             else:
                 # For initial registers, we taint them by applying an AST with a fixed value via constraints
@@ -190,7 +195,7 @@ class BaseStateSnapshot:
                 base_snapshot.init_reg_bitvecs_unconstrained.append(ast_unconstrained)
                 base_snapshot.init_reg_constraints.append(constraint)
 
-                if name == REG_NAME_SP:
+                if name == specific_arch.REG_SP:
                     initial_sp = val
 
             setattr(initial_state.regs, name, ast)

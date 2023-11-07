@@ -89,8 +89,8 @@ class LivenessPlugin(angr.SimStatePlugin):
         l.warning("[%x] Increasing alive var ref: %r, #refs now: %d", self.state.addr, varname, self.alive_varname_counts[varname])
 
     def _remove_scratch_reg_refs(self):
-        for reg in [self.state.regs.r1, self.state.regs.r2, self.state.regs.r3, self.state.regs.lr]:
-            for varname in reg.variables:
+        for reg_name in self.base_snapshot.specific_arch.scratch_reg_names:
+            for varname in getattr(self.state.regs, reg_name).variables:
                 if varname in self.alive_varname_counts:
                     l.debug("Function return liveness updates; decreasing count for variable: %r", varname)
                     self._remove_ref(varname)
@@ -124,7 +124,7 @@ class LivenessPlugin(angr.SimStatePlugin):
             for varname in contents.variables:
                 if varname in self.alive_varname_counts:
                     self._remove_ref(varname)
-
+        
         # For top level function return, also remove scratch registers from scope
         if not self.stackframes:
             l.warning("[{:x}] Returned from top level function".format(state.addr))
@@ -149,7 +149,7 @@ class LivenessPlugin(angr.SimStatePlugin):
                     self._add_ref(varname)
 
         # Kill overwritten references
-        old_val = self.state.registers.load(reg_write_offset, write_len, disable_actions=True, inspect=False, endness=archinfo.Endness.LE)
+        old_val = self.state.registers.load(reg_write_offset, write_len, disable_actions=True, inspect=False, endness=self.base_snapshot.endness)
         if old_val.symbolic:
             for varname in self.state.solver.simplify(old_val).variables:
                 if varname in self.alive_varname_counts:
@@ -170,7 +170,7 @@ class LivenessPlugin(angr.SimStatePlugin):
                 if varname in self.alive_varname_counts:
                     self._add_ref(varname)
 
-            old_val = self.state.memory.load(write_addr, write_len, disable_actions=True, inspect=False, endness=archinfo.Endness.LE)
+            old_val = self.state.memory.load(write_addr, write_len, disable_actions=True, inspect=False, endness=self.base_snapshot.endness)
             for varname in old_val.variables:
                 if varname in self.alive_varname_counts:
                     self._remove_ref(varname)
@@ -194,7 +194,7 @@ class LivenessPlugin(angr.SimStatePlugin):
 
         # 3. Now do bookkeeping about the address. If the address is not yet tracked, don't look at old_val
         if write_addr in frame.tracked_addrs:
-            old_val = self.state.memory.load(write_addr, write_len, disable_actions=True, inspect=False, endness=archinfo.Endness.LE)
+            old_val = self.state.memory.load(write_addr, write_len, disable_actions=True, inspect=False, endness=self.base_snapshot.endness)
             l.debug("Address already tracked, checking previous contents for override: %r", old_val)
             for varname in old_val.variables:
                 if varname in self.alive_varname_counts:
