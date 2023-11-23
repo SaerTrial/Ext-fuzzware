@@ -1,6 +1,6 @@
 from .arch import *
 from typing import Tuple
-
+from ..angr_utils import all_states
 
 ARMG_CC_OP_COPY = 0
 
@@ -9,6 +9,10 @@ REG_NAME_SP = 'sp'
 
 CORTEXM_MMIO_START = 0x40000000
 CORTEXM_MMIO_END   = 0x60000000
+
+OPCODE_BYTE_BKPT = 0xbe
+OPCODE_INF_LOOP = 0xe7fe
+OPCODE_WFI = 0xbf30
 
 """ MMIO Ranges """
 DEFAULT_MMIO_RANGES = (
@@ -191,6 +195,19 @@ class ArmQuirks():
             return None, None
 
         return None, None
+
+    @classmethod
+    def try_handling_decode_error(self, simulation, stash_name, addr):
+        sample_state = simulation.stashes[stash_name][0]
+        if addr & 1 == 1 and sample_state.mem_concrete(addr, 1) == OPCODE_BYTE_BKPT:
+            # Clear block translation cache
+            sample_state.project.factory.default_engine._block_cache.clear()
+            for state in all_states(simulation):
+                assert(state.mem_concrete(addr, 1) == OPCODE_BYTE_BKPT)
+                state.memory.store(addr-1, OPCODE_WFI, 2, disable_actions=True, inspect=False, endness=state.project.arch.memory_endness)
+            return True
+        else:
+            return False        
 
 
 class ArchSpecificsARMCortexM(ArchSpecifics):

@@ -126,7 +126,7 @@ def wrapped_explore(simulation, **kwargs):
             addr = insn_addr_from_SimIRSBNoDecodeError(e)
 
             # Try recovering from things like breakpoints
-            if not try_handling_decode_error(simulation, stash_name, addr):
+            if not simulation.base_snapshot.specific_arch.quirks.try_handling_decode_error(simulation, stash_name, addr):
                 return False
         except (angr.errors.SimZeroDivisionException) as e:
             traceback.print_tb(e.__traceback__)
@@ -149,9 +149,9 @@ def perform_analysis(statefile, cfg=None, is_debug=False, timeout=DEFAULT_TIMEOU
         initial_state.inspect.b('mem_write', when=angr.BP_AFTER, action=inspect_bp_trace_writes)
 
     simulation = project.factory.simgr(initial_state, resilience=False)
-
+    
     # Handle quirky arch-specific instruction modeling
-    result_line, config_entry = model_arch_specific(project, initial_state, base_snapshot, simulation)
+    result_line, config_entry = base_snapshot.specific_arch.quirks.model_arch_specific(project, initial_state, base_snapshot, simulation)
     if result_line is not None and config_entry is not None:
         return result_line, config_entry
 

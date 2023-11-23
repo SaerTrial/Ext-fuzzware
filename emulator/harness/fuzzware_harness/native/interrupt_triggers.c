@@ -4,6 +4,8 @@
 #include "timer.h"
 #include <string.h>
 
+// TODO: generalize for other archs
+
 // 0. Constants
 #define MAX_INTERRUPT_TRIGGERS 256
 

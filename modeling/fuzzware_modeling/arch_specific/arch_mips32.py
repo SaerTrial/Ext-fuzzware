@@ -1,13 +1,16 @@
 from .arch import *
 from typing import Tuple
-
+from ..angr_utils import all_states
 
 REG_NAME_PC = 'pc'
 REG_NAME_SP = 'sp'
 
+OPCODE_WFI = 0x42000020
+OPCODE_BYTE_BREAK = 0x0d
 
-CORTEXM_MMIO_START = 0xbf800000
-CORTEXM_MMIO_END   = 0xbf900000
+
+MIPS32_MMIO_START = 0xbf800000
+MIPS32_MMIO_END   = 0xbf900000
 
 """ MMIO Ranges """
 DEFAULT_MMIO_RANGES = (
@@ -28,6 +31,20 @@ class MIPS32Quirks():
     @classmethod
     def model_arch_specific(self, project, initial_state, base_snapshot, simulation) -> Tuple[str, dict]:
         return None, None
+
+    @classmethod
+    def try_handling_decode_error(self, simulation, stash_name, addr):
+        sample_state = simulation.stashes[stash_name][0]
+        if addr & 1 == 1 and sample_state.mem_concrete(addr, 1) == OPCODE_BYTE_BREAK:
+            # Clear block translation cache
+            sample_state.project.factory.default_engine._block_cache.clear()
+            for state in all_states(simulation):
+                assert(state.mem_concrete(addr, 1) == OPCODE_BYTE_BREAK)
+                state.memory.store(addr-1, OPCODE_WFI, 2, disable_actions=True, inspect=False, endness=state.project.arch.memory_endness)
+            return True
+        else:
+            return False   
+
 
 class ArchSpecificsMIPS32(ArchSpecifics):
     def __init__(self, endness):
@@ -77,12 +94,12 @@ class ArchSpecificsMIPS32(ArchSpecifics):
     @property
     def quirks(self):
         return MIPS32Quirks
-    
+
     def mmio_and_isr_range(self):
         # default mmio range
         # MMIO range to be added
         # ISR range
-        return [DEFAULT_MMIO_RANGES, (CORTEXM_MMIO_START, CORTEXM_MMIO_END), (ISR_START_IN_ROM, ISR_START_IN_ROM | 0xfff)]
+        return [DEFAULT_MMIO_RANGES, (MIPS32_MMIO_START, MIPS32_MMIO_END), (ISR_START_IN_ROM, ISR_START_IN_ROM | 0xfff)]
 
     @property
     def endianness(self):

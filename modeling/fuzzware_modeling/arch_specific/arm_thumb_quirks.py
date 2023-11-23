@@ -10,6 +10,9 @@ OPCODE_BYTE_BKPT = 0xbe
 OPCODE_INF_LOOP = 0xe7fe
 OPCODE_WFI = 0xbf30
 
+# OPCODE_WFI_MIPS = 0x42000020
+# OPC_BREAK_MIPS = 0x0d
+
 def try_handling_decode_error(simulation, stash_name, addr):
     sample_state = simulation.stashes[stash_name][0]
     if addr & 1 == 1 and sample_state.mem_concrete(addr, 1) == OPCODE_BYTE_BKPT:
