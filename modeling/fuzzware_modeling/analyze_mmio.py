@@ -126,7 +126,7 @@ def wrapped_explore(simulation, **kwargs):
             addr = insn_addr_from_SimIRSBNoDecodeError(e)
 
             # Try recovering from things like breakpoints
-            if not simulation.base_snapshot.specific_arch.quirks.try_handling_decode_error(simulation, stash_name, addr):
+            if not simulation.active[0].liveness.base_snapshot.specific_arch.quirks.try_handling_decode_error(simulation, stash_name, addr):
                 return False
         except (angr.errors.SimZeroDivisionException) as e:
             traceback.print_tb(e.__traceback__)
