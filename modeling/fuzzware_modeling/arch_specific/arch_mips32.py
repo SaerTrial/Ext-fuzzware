@@ -35,12 +35,12 @@ class MIPS32Quirks():
     @classmethod
     def try_handling_decode_error(self, simulation, stash_name, addr):
         sample_state = simulation.stashes[stash_name][0]
-        if addr & 1 == 1 and sample_state.mem_concrete(addr, 1) == OPCODE_BYTE_BREAK:
+        if sample_state.mem_concrete(addr, 4) == OPCODE_BYTE_BREAK:
             # Clear block translation cache
             sample_state.project.factory.default_engine._block_cache.clear()
             for state in all_states(simulation):
-                assert(state.mem_concrete(addr, 1) == OPCODE_BYTE_BREAK)
-                state.memory.store(addr-1, OPCODE_WFI, 2, disable_actions=True, inspect=False, endness=state.project.arch.memory_endness)
+                assert(state.mem_concrete(addr, 4) == OPCODE_BYTE_BREAK)
+                state.memory.store(addr, OPCODE_WFI, 4, disable_actions=True, inspect=False, endness=state.project.arch.memory_endness)
             return True
         else:
             return False   
