@@ -2,7 +2,7 @@
 #include "timer.h"
 #include <string.h>
 #include "native_hooks.h"
-#include "core_peripherals/cortexm_nvic.h"
+#include "core_peripherals/cortexm/cortexm_nvic.h"
 #include "util.h"
 #include "state_snapshotting.h"
 

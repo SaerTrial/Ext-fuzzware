@@ -28,3 +28,4 @@ PAGE_SIZE = 0x1000
 """
 FUZZ_MODES = ('fixed', 'fuzzed', 'round_robin')
 TRIGGER_MODES = ('addr', 'every_nth_tick', 'fuzzed')
+PROCESSOR_MODES = ('', 'pic32mz', 'pic32mx')

@@ -5,7 +5,7 @@
 #include "cortexm_exception_nums.h"
 #include "cmsis/core_cm3.h"
 #include "cortexm_nvic.h"
-#include "../timer.h"
+#include "../../timer.h"
 
 #define SYST_CSR_RESET_VAL 0
 #define SYSTICK_RELOAD_VAL_NONE 0

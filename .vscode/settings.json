@@ -1,6 +1,7 @@
 {
     "C_Cpp.errorSquiggles": "disabled",
     "files.associations": {
-        "cortexm_nvic.h": "c"
+        "cortexm_nvic.h": "c",
+        "state_snapshotting.h": "c"
     }
 }

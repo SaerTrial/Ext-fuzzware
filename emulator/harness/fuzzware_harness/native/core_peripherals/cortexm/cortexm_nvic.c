@@ -85,7 +85,7 @@ static inline uint32_t GET_CURR_SP_MODE_IS_PSP () {
 
 
 // Forward declarations
-static void ExceptionEntry(uc_engine *uc, bool is_tail_chained, bool skip_instruction);
+static void cortexm_ExceptionEntry(uc_engine *uc, bool is_tail_chained, bool skip_instruction);
 
 // Armv7-M ARM B1.5.8
 static int get_group_prio(int raw_prio) {
@@ -132,7 +132,7 @@ static bool pending_exception_can_be_activated() {
  * Re-calculate nvic interrupt prios and indicate whether
  * things have changed (i.e., a higher-prio interrupt is now pending).
  */
-static bool recalc_prios() {
+static bool cortexm_recalc_prios() {
     int highest_pending_prio = 256;
     int num_active = 0;
 
@@ -189,17 +189,17 @@ static bool recalc_prios() {
     return pending_prio_now_surpasses_active;
 }
 
-bool is_disabled_by_config(uint32_t exception_no) {
-    for(int i = 0; i < num_config_disabled_interrupts; ++i) {
-        if(config_disabled_interrupts[i] == exception_no) {
-            return true;
-        }
-    }
+// bool is_disabled_by_config(uint32_t exception_no) {
+//     for(int i = 0; i < num_config_disabled_interrupts; ++i) {
+//         if(config_disabled_interrupts[i] == exception_no) {
+//             return true;
+//         }
+//     }
 
-    return false;
-}
+//     return false;
+// }
 
-void pend_interrupt(uc_engine *uc, int exception_no) {
+void cortexm_pend_interrupt(uc_engine *uc, int exception_no) {
     #ifdef DEBUG_NVIC
     printf("[pend_interrupt] exception_no=%d\n", exception_no);
     fflush(stdout);
@@ -212,14 +212,14 @@ void pend_interrupt(uc_engine *uc, int exception_no) {
         if(exception_no < nvic.pending_irq ||
             nvic.ExceptionPriority[exception_no] < nvic.pending_prio) {
         #endif
-            recalc_prios();
+            cortexm_recalc_prios();
         #ifndef DISABLE_LAZY_RECALCS
         }
         #endif
     }
 }
 
-static void maybe_activate(uc_engine *uc, bool skip_instruction) {
+static void cortexm_maybe_activate(uc_engine *uc, bool skip_instruction) {
     #ifdef DEBUG_NVIC
     printf("[maybe_activate] skip_instruction: %d\n", skip_instruction);
     #endif
@@ -229,7 +229,7 @@ static void maybe_activate(uc_engine *uc, bool skip_instruction) {
      * in case we have a higher-prio exception (post boosting) pended.
      */
     if(pending_exception_can_be_activated()) {
-        ExceptionEntry(uc, false, skip_instruction);
+        cortexm_ExceptionEntry(uc, false, skip_instruction);
     }
 }
 
@@ -241,7 +241,7 @@ void clear_pend_interrupt(uc_engine *uc, int exception_no) {
         // We only need to update if we clear the currently pending interrupt
         if(nvic.pending_irq == exception_no) {
         #endif
-            recalc_prios();
+            cortexm_recalc_prios();
         #ifndef DISABLE_LAZY_RECALCS
         }
         #endif
@@ -393,13 +393,13 @@ static bool disable_irq(uc_engine *uc, int to_be_disabled) {
  * prigroup itself is a shift amount which determines
  * group prio and sub prio masks.
  */
-static void set_prigroup(uint8_t new_prigroup) {
+static void cortexm_set_prigroup(uint8_t new_prigroup) {
     nvic.prigroup_shift = new_prigroup;
     nvic.sub_prio_mask = (2 << new_prigroup) - 1;
     nvic.group_prio_mask = ~nvic.sub_prio_mask;
 }
 
-static bool set_prio(int to_be_prio_changed, int new_prio) {
+static bool cortexm_set_prio(int to_be_prio_changed, int new_prio) {
     /*
      * Set priority and return whether an nvic prio recalc is required.
      */
@@ -451,7 +451,7 @@ void hook_nvic_mmio_write(uc_engine *uc, uc_mem_type type,
             }
 
             if(need_update) {
-                recalc_prios();
+                cortexm_recalc_prios();
             }
             break;
         case NVIC_IREG_RANGE(NVIC_ICER): // Interrupt Clear-Enable Registers
@@ -468,7 +468,7 @@ void hook_nvic_mmio_write(uc_engine *uc, uc_mem_type type,
             }
 
             if(need_update) {
-                recalc_prios();
+                cortexm_recalc_prios();
             }
             break;
         case NVIC_IREG_RANGE(NVIC_ISPR): // Interrupt Set-Pending Registers
@@ -515,12 +515,12 @@ void hook_nvic_mmio_write(uc_engine *uc, uc_mem_type type,
                     uint8_t new_prio = value & 0xff;
                     uint8_t to_be_prio_changed = base_ind + i;
 
-                    need_update |= set_prio(to_be_prio_changed, new_prio);
+                    need_update |= cortexm_set_prio(to_be_prio_changed, new_prio);
                     value >>= 8;
                 }
 
                 if(need_update) {
-                    recalc_prios();
+                    cortexm_recalc_prios();
                 }
             }
             break;
@@ -551,7 +551,7 @@ static uint32_t calc_icsr() {
     return res;
 }
 
-void hook_sysctl_mmio_read(uc_engine *uc, uc_mem_type type,
+void cortexm_hook_sysctl_mmio_read(uc_engine *uc, uc_mem_type type,
                       uint64_t addr, int size, int64_t value, void *user_data) {
     #ifdef DEBUG_NVIC
     value = 0;
@@ -625,8 +625,8 @@ static void pend_from_mem_write(uc_engine *uc, int exception_no) {
     * instruction, as we would return to another write
     * otherwise
     */
-    pend_interrupt(uc, exception_no);
-    maybe_activate(uc, true);
+    cortexm_pend_interrupt(uc, exception_no);
+    cortexm_maybe_activate(uc, true);
 }
 
 static void handle_icsr_write(uc_engine *uc, uint32_t value) {
@@ -668,9 +668,9 @@ static void handle_aircr_write(uc_engine *uc, uint32_t value) {
         printf("[NVIC] SYSCTL_AIRCR write: Setting prigroup to new value. Old value: %#04x, new value: %#04x\n", new_prigroup, nvic.prigroup_shift);
         fflush(stdout);
         #endif
-        set_prigroup(new_prigroup);
+        cortexm_set_prigroup(new_prigroup);
 
-        recalc_prios();
+        cortexm_recalc_prios();
     }
     #ifdef DEBUG_NVIC
     else {
@@ -679,7 +679,7 @@ static void handle_aircr_write(uc_engine *uc, uint32_t value) {
     #endif
 }
 
-void hook_sysctl_mmio_write(uc_engine *uc, uc_mem_type type,
+void cortexm_hook_sysctl_mmio_write(uc_engine *uc, uc_mem_type type,
                       uint64_t addr, int size, int64_t value, void *user_data) {
     #ifdef DEBUG_NVIC
     printf("[NVIC] hook_sysctl_mmio_write: Write to %08lx, value: %08lx\n", addr, value);
@@ -737,12 +737,12 @@ void hook_sysctl_mmio_write(uc_engine *uc, uc_mem_type type,
                 uint8_t new_prio = value & 0xff;
                 uint8_t to_be_prio_changed = base_ind + i;
 
-                need_update |= set_prio(to_be_prio_changed, new_prio);
+                need_update |= cortexm_set_prio(to_be_prio_changed, new_prio);
                 value >>= 8;
             }
 
             if(need_update) {
-                recalc_prios();
+                cortexm_recalc_prios();
             }
             break;
         default:
@@ -906,7 +906,7 @@ void ExceptionReturn(uc_engine *uc, uint32_t ret_pc) {
     nvic.active_irq = NVIC_NONE_ACTIVE;
     if(pending_exception_can_be_activated()) {
         // Can we tail-chain?
-        ExceptionEntry(uc, true, false);
+        cortexm_ExceptionEntry(uc, true, false);
         return;
     }
 
@@ -948,7 +948,7 @@ void ExceptionReturn(uc_engine *uc, uint32_t ret_pc) {
 
 // idea: just hook code for the magic is_exception_ret address range
 // prerequisites: tail-chaining of interrupts needs to work and the MMIO ranges need to be used
-static void nvic_exception_return_hook(uc_engine *uc, uint64_t address, uint32_t size, void *user_data) {
+static void cortexm_nvic_exception_return_hook(uc_engine *uc, uint64_t address, uint32_t size, void *user_data) {
     #ifdef DEBUG_NVIC
     uint32_t lr;
     uc_reg_read(uc, UC_ARM_REG_LR, &lr);
@@ -986,8 +986,8 @@ static void handler_svc(uc_engine *uc, uint32_t intno, void *user_data) {
         }
         #endif
         // SVCs are enabled by default. Just pend the SVC exception here
-        pend_interrupt(uc, EXCEPTION_NO_SVC);
-        maybe_activate(uc, false);
+        cortexm_pend_interrupt(uc, EXCEPTION_NO_SVC);
+        cortexm_maybe_activate(uc, false);
     } else {
         // Alternatives could be breakpoints and the like, which we do not handle.
         if(do_print_exit_info) {
@@ -1000,7 +1000,7 @@ static void handler_svc(uc_engine *uc, uint32_t intno, void *user_data) {
 }
 
 // B1.5.6
-static void ExceptionEntry(uc_engine *uc, bool is_tail_chained, bool skip_instruction) {
+static void cortexm_ExceptionEntry(uc_engine *uc, bool is_tail_chained, bool skip_instruction) {
     uint32_t new_lr = NVIC_INTERRUPT_ENTRY_LR_BASE;
 
     #ifdef DEBUG_NVIC
@@ -1105,7 +1105,7 @@ static void ExceptionEntry(uc_engine *uc, bool is_tail_chained, bool skip_instru
 //#define NVIC_BLOCK_HOOK_SIMPLE
 #ifndef NVIC_BLOCK_HOOK_SIMPLE
 __attribute__ ((hot))
-static void nvic_block_hook(uc_engine *uc, uint64_t address, uint32_t size, struct CortexmNVIC * arg_nvic) {
+static void cortexm_nvic_block_hook(uc_engine *uc, uint64_t address, uint32_t size, struct CortexmNVIC * arg_nvic) {
     /*
      * This implementation takes the more complex approach of trying to exit early in the common
      * case: If nothing changed on the enabling / base priority sides, just exit.
@@ -1181,7 +1181,7 @@ static void nvic_block_hook(uc_engine *uc, uint64_t address, uint32_t size, stru
             }
 
             if(arg_nvic->pending_prio < active_group_prio) {
-                ExceptionEntry(uc, false, false);
+                cortexm_ExceptionEntry(uc, false, false);
             }
 
         #ifdef DISABLE_NESTED_INTERRUPTS
@@ -1194,7 +1194,7 @@ static void nvic_block_hook(uc_engine *uc, uint64_t address, uint32_t size, stru
 }
 #else
 __attribute__ ((hot))
-static void nvic_block_hook(uc_engine *uc, uint64_t address, uint32_t size, struct CortexmNVIC *arg_nvic) {
+static void cortexm_nvic_block_hook(uc_engine *uc, uint64_t address, uint32_t size, struct CortexmNVIC *arg_nvic) {
     /*
      * This implementation takes the simple approach of always re-calculating the current
      * active prio and checking it against the pending prio in case interrupts are enabled.
@@ -1215,7 +1215,7 @@ static void nvic_block_hook(uc_engine *uc, uint64_t address, uint32_t size, stru
         }
 
         if(unlikely(arg_nvic->pending_prio < active_group_prio)) {
-            ExceptionEntry(uc, false, false);
+            cortexm_ExceptionEntry(uc, false, false);
         }
 
         #ifdef DISABLE_NESTED_INTERRUPTS
@@ -1225,7 +1225,7 @@ static void nvic_block_hook(uc_engine *uc, uint64_t address, uint32_t size, stru
 }
 #endif
 
-void *nvic_take_snapshot(uc_engine *uc) {
+void *cortexm_nvic_take_snapshot(uc_engine *uc) {
     size_t size = sizeof(nvic);
 
     // NVIC snapshot: save the sysreg mem page
@@ -1236,18 +1236,18 @@ void *nvic_take_snapshot(uc_engine *uc) {
     return result;
 }
 
-void nvic_restore_snapshot(uc_engine *uc, void *snapshot) {
+void cortexm_nvic_restore_snapshot(uc_engine *uc, void *snapshot) {
     // Restore the nvic
     memcpy(&nvic, snapshot, sizeof(nvic));
     // Restore the sysreg mem page
     uc_mem_write(uc, SYSCTL_START, ((char *) snapshot) + sizeof(nvic), PAGE_SIZE);
 }
 
-void nvic_discard_snapshot(uc_engine *uc, void *snapshot) {
+void cortexm_nvic_discard_snapshot(uc_engine *uc, void *snapshot) {
     free(snapshot);
 }
 
-uc_err init_nvic(uc_engine *uc, uint32_t vtor, uint32_t num_irq, uint32_t p_interrupt_limit, uint32_t num_disabled_interrupts, uint32_t *disabled_interrupts) {
+uc_err cortexm_init_nvic(uc_engine *uc, uint32_t vtor, uint32_t num_irq, uint32_t p_interrupt_limit, uint32_t num_disabled_interrupts, uint32_t *disabled_interrupts) {
     #ifdef DEBUG_NVIC
     printf("[NVIC] init_nvic called with vtor: %x, num_irq: %d\n", vtor, num_irq); fflush(stdout);
     #endif
@@ -1268,7 +1268,7 @@ uc_err init_nvic(uc_engine *uc, uint32_t vtor, uint32_t num_irq, uint32_t p_inte
     nvic.pending_irq = NVIC_NONE_ACTIVE;
     nvic.active_group_prio = NVIC_LOWEST_PRIO;
     nvic.pending_prio = NVIC_LOWEST_PRIO;
-    set_prigroup(NVIC_RESET_VAL_PRIGROUP);
+    cortexm_set_prigroup(NVIC_RESET_VAL_PRIGROUP);
 
     // B1.5.5 Reset Behavior
     // Unicorn CPU reset will reset PRIMASK / FAULTMASK, SP, ...
@@ -1304,32 +1304,32 @@ uc_err init_nvic(uc_engine *uc, uint32_t vtor, uint32_t num_irq, uint32_t p_inte
         nvic.vtor = vtor;
     }
 
-    uc_hook_add(uc, &nvic_exception_return_hook_handle, UC_HOOK_BLOCK, nvic_exception_return_hook, NULL, EXCEPT_MAGIC_RET_MASK, EXCEPT_MAGIC_RET_MASK | 0xf);
+    uc_hook_add(uc, &nvic_exception_return_hook_handle, UC_HOOK_BLOCK, cortexm_nvic_exception_return_hook, NULL, EXCEPT_MAGIC_RET_MASK, EXCEPT_MAGIC_RET_MASK | 0xf);
 
-    uc_hook_add(uc, &nvic_block_hook_handle, UC_HOOK_BLOCK_UNCONDITIONAL, nvic_block_hook, &nvic, 1, 0);
+    uc_hook_add(uc, &nvic_block_hook_handle, UC_HOOK_BLOCK_UNCONDITIONAL, cortexm_nvic_block_hook, &nvic, 1, 0);
 
     // 3. nvic MMIO range read/write handler
-    uc_hook_add(uc, &hook_mmio_write_handle, UC_HOOK_MEM_WRITE, hook_sysctl_mmio_write, NULL, SYSCTL_MMIO_BASE, SYSCTL_MMIO_END);
-    uc_hook_add(uc, &hook_mmio_read_handle, UC_HOOK_MEM_READ, hook_sysctl_mmio_read, NULL, SYSCTL_MMIO_BASE, SYSCTL_MMIO_END);
+    uc_hook_add(uc, &hook_mmio_write_handle, UC_HOOK_MEM_WRITE, cortexm_hook_sysctl_mmio_write, NULL, SYSCTL_MMIO_BASE, SYSCTL_MMIO_END);
+    uc_hook_add(uc, &hook_mmio_read_handle, UC_HOOK_MEM_READ, cortexm_hook_sysctl_mmio_read, NULL, SYSCTL_MMIO_BASE, SYSCTL_MMIO_END);
 
     uc_hook_add(uc, &hook_svc_handle, UC_HOOK_INTR, handler_svc, NULL, 1, 0);
 
-    subscribe_state_snapshotting(uc, nvic_take_snapshot, nvic_restore_snapshot, nvic_discard_snapshot);
+    subscribe_state_snapshotting(uc, cortexm_nvic_take_snapshot, cortexm_nvic_restore_snapshot, cortexm_nvic_discard_snapshot);
 
-    recalc_prios();
+    cortexm_recalc_prios();
 
     return UC_ERR_OK;
 }
 
-uint16_t get_num_enabled() {
+uint16_t cortexm_get_num_enabled() {
     return nvic.num_enabled;
 }
 
-uint8_t nth_enabled_irq_num(uint8_t n) {
+uint8_t cortexm_nth_enabled_irq_num(uint8_t n) {
     return nvic.enabled_irqs[n % nvic.num_enabled];
 }
 
-void nvic_set_pending(uc_engine *uc, uint32_t num, int delay_activation) {
-    pend_interrupt(uc, num);
-    maybe_activate(uc, false);
+void cortexm_nvic_set_pending(uc_engine *uc, uint32_t num, int delay_activation) {
+    cortexm_pend_interrupt(uc, num);
+    cortexm_maybe_activate(uc, false);
 }

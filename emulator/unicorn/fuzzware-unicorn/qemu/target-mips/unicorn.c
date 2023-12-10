@@ -102,7 +102,10 @@ int mips_reg_read(struct uc_struct *uc, unsigned int *regs, void **vals, int cou
                          break;
                 case UC_MIPS_REG_CP0_USERLOCAL:
                          *(mipsreg_t *)value = MIPS_CPU(uc, mycpu)->env.active_tc.CP0_UserLocal;
-                         break;                              
+                         break;   
+                case UC_MIPS_REG_CP0_EPC:
+                         *(mipsreg_t *)value = MIPS_CPU(uc, mycpu)->env.CP0_EPC;
+                         break;                             
             }
         }
     }
@@ -138,7 +141,10 @@ int mips_reg_write(struct uc_struct *uc, unsigned int *regs, void *const *vals, 
                         break;
                 case UC_MIPS_REG_CP0_USERLOCAL:
                          MIPS_CPU(uc, mycpu)->env.active_tc.CP0_UserLocal = *(mipsreg_t *)value;
-                         break;                         
+                         break;                
+                case UC_MIPS_REG_CP0_EPC:
+                         MIPS_CPU(uc, mycpu)->env.CP0_EPC = *(mipsreg_t *)value;
+                         break;        
             }
         }
     }

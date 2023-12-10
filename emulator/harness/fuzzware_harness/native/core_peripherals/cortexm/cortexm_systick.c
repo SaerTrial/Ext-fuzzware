@@ -130,7 +130,7 @@ static void systick_trigger_callback (uc_engine *uc, uint32_t id, void *user_dat
         #endif
         // TODO FIXME: use pend_interrupt as soon as we are done with the compatibility impl
         // pend_interrupt(uc, EXCEPTION_NO_SYSTICK);
-        nvic_set_pending(uc, EXCEPTION_NO_SYSTICK, false);
+        cortexm_nvic_set_pending(uc, EXCEPTION_NO_SYSTICK, false);
     }
 
     // Reloading is done implicitly by the underlying timer

@@ -212,11 +212,11 @@ def set_ignored_mmio_addresses(addresses, pcs):
         addrs_arr, pcs_arr, len(addrs_arr)
     ) == 0
 
-def init_nvic(uc, vtor, num_vecs, interrupt_limit=DEFAULT_MAX_INTERRUPTS, disabled_interrupts=()):
+def init_nvic(uc, processor, vtor, num_vecs, interrupt_limit=DEFAULT_MAX_INTERRUPTS, disabled_interrupts=()):
     global native_lib
     logger.debug("Calling init_nvic with vtor=0x{:08x}, num_vecs: {}".format(vtor, num_vecs))
     disabled_interrupts_arr = (ctypes.c_int32 * len(disabled_interrupts))(*disabled_interrupts)
-    assert native_lib.init_nvic(uc._uch, vtor, num_vecs, interrupt_limit, len(disabled_interrupts), disabled_interrupts_arr) == 0
+    assert native_lib.init_nvic(uc._uch, processor, vtor, num_vecs, interrupt_limit, len(disabled_interrupts), disabled_interrupts_arr) == 0
 
 def init_native_tracing(uc, bbl_set_trace_path, bbl_hash_path, mmio_set_trace_path, mmio_ranges):
     global native_lib
@@ -365,8 +365,8 @@ def init(uc, mmio_regions, exit_at_bbls, exit_at_hit_num, do_print_exit_info, fu
     _setup_prototype(native_lib, "register_value_set_mmio_models", ctypes.c_int, uc_engine, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int)
 
     # NVIC
-    # extern uc_err init_nvic(uc_engine *uc, uint32_t vtor, uint32_t num_irq, uint32_t interrupt_limit, uint32_t num_disabled_interrupts, uint32_t *disabled_interrupts);
-    _setup_prototype(native_lib, "init_nvic", ctypes.c_int, uc_engine, ctypes.c_uint, ctypes.c_uint, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p)
+    # extern uc_err init_nvic(uc_engine *uc, uint32_t processor, uint32_t vtor, uint32_t num_irq, uint32_t interrupt_limit, uint32_t num_disabled_interrupts, uint32_t *disabled_interrupts);
+    _setup_prototype(native_lib, "init_nvic", ctypes.c_int, uc_engine, ctypes.c_uint32, ctypes.c_uint, ctypes.c_uint, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p)
     # extern void nvic_set_pending(int num)
     _setup_prototype(native_lib, "nvic_set_pending", ctypes.c_int, ctypes.c_int)
 

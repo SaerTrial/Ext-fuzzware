@@ -157,6 +157,7 @@ def configure_unicorn(args):
                 uc.mem_write(start + load_offset, region_data)
 
             if region.get('is_entry') == True:
+                # TODO: this may not apply to MIPS and other archs
                 vtor = start
                 logger.debug(f"setting vtor: {vtor:#x}")
 
@@ -295,8 +296,9 @@ def configure_unicorn(args):
     if use_nvic:
         nvic_cfg = config.get('nvic', {})
         num_vecs = nvic_cfg.get('num_vecs', globs.DEFAULT_NUM_NVIC_VECS)
+        processor = globs.PROCESSOR_MODES.index(nvic_cfg.get('processor', ''))
         disabled_interrupts = nvic_cfg.get('disabled_irqs', ())
-        native.init_nvic(uc, vtor, num_vecs, args.interrupt_limit, disabled_interrupts)
+        native.init_nvic(uc, processor, vtor, num_vecs, args.interrupt_limit, disabled_interrupts)
 
     maybe_register_global_block_hook(uc)
 

@@ -1,10 +1,11 @@
 #include "interrupt_triggers.h"
 #include "native_hooks.h"
-#include "core_peripherals/cortexm_nvic.h"
+// #include "core_peripherals/cortexm/cortexm_nvic.h"
 #include "timer.h"
 #include <string.h>
+#include "core_peripherals/interrupt_common.h"
 
-// TODO: generalize for other archs
+
 
 // 0. Constants
 #define MAX_INTERRUPT_TRIGGERS 256
@@ -66,6 +67,7 @@ static void interrupt_trigger_tick_block_hook(uc_engine *uc, uint64_t address, u
 
             case IRQ_FUZZ_MODE_FUZZ_ENABLED_IRQ_INDEX:
                 // Pend the irq which the fuzzer decides which irq to pend based on the currently enabled ones
+                
                 num_enabled = get_num_enabled();
                 if (num_enabled)
                 {

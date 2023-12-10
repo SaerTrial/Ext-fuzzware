@@ -7,11 +7,11 @@
 #include "unicorn/unicorn.h"
 #include "cortexm_exception_nums.h"
 #include "cortexm_systick.h"
-
-#include "../util.h"
-#include "../timer.h"
-#include "../native_hooks.h"
-#include "../uc_snapshot.h"
+#include "../interrupt_util.h"
+#include "../../util.h"
+#include "../../timer.h"
+#include "../../native_hooks.h"
+#include "../../uc_snapshot.h"
 
 #define NVIC_ASSERTIONS
 
@@ -115,15 +115,15 @@ struct CortexmNVIC {
     uint8_t enabled_irqs[NVIC_NUM_SUPPORTED_INTERRUPTS];
 };
 
-void pend_interrupt(uc_engine *uc, int exception_no);
+void cortexm_pend_interrupt(uc_engine *uc, int exception_no);
 
-uc_err init_nvic(uc_engine *uc, uint32_t vtor, uint32_t num_irq, uint32_t interrupt_limit, uint32_t num_disabled_interrupts, uint32_t *disabled_interrupts);
+uc_err cortexm_init_nvic(uc_engine *uc, uint32_t vtor, uint32_t num_irq, uint32_t interrupt_limit, uint32_t num_disabled_interrupts, uint32_t *disabled_interrupts);
 
 // Added for fuzzing purposes
-uint16_t get_num_enabled();
-uint8_t nth_enabled_irq_num(uint8_t n);
+uint16_t cortexm_get_num_enabled();
+uint8_t cortexm_nth_enabled_irq_num(uint8_t n);
 
 // TODO: remove backward-compatible interface
-void nvic_set_pending(uc_engine *uc, uint32_t num, int skip_current_instruction);
+void cortexm_nvic_set_pending(uc_engine *uc, uint32_t num, int skip_current_instruction);
 
 #endif
