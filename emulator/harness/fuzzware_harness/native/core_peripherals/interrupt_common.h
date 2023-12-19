@@ -13,7 +13,7 @@ uc_err init_nvic(uc_engine *uc, uint32_t processor,uint32_t vtor, uint32_t num_i
 
 
 // setting a pending bit in an arch-specific structure
-void (*nvic_set_pending)(uc_engine, uint32_t, int);
+void (*nvic_set_pending)(uc_engine*, uint32_t, int);
 
 // getting the number of enabled irqs
 uint16_t (*get_num_enabled) ();

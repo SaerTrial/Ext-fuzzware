@@ -105,7 +105,10 @@ int mips_reg_read(struct uc_struct *uc, unsigned int *regs, void **vals, int cou
                          break;   
                 case UC_MIPS_REG_CP0_EPC:
                          *(mipsreg_t *)value = MIPS_CPU(uc, mycpu)->env.CP0_EPC;
-                         break;                             
+                         break;       
+                case UC_MIPS_REG_CP0_CAUSE:
+                         *(mipsreg_t *)value = MIPS_CPU(uc, mycpu)->env.CP0_Cause;
+                         break;                        
             }
         }
     }
@@ -129,9 +132,11 @@ int mips_reg_write(struct uc_struct *uc, unsigned int *regs, void *const *vals, 
                 case UC_MIPS_REG_PC:
                          MIPS_CPU(uc, mycpu)->env.active_tc.PC = *(mipsreg_t *)value;
                          // force to quit execution and flush TB
-                         uc->quit_request = true;
-                         uc_emu_stop(uc);
-                         break;
+                        uc->quit_request = true;
+                        uc->stop_request = true;
+                        uc->cpu->tcg_exit_req = true;
+                        uc->cpu->exit_request = true;
+                        break;
                 case UC_MIPS_REG_CP0_CONFIG3:
                          MIPS_CPU(uc, mycpu)->env.CP0_Config3 = *(mipsreg_t *)value;
                          break;
@@ -144,7 +149,10 @@ int mips_reg_write(struct uc_struct *uc, unsigned int *regs, void *const *vals, 
                          break;                
                 case UC_MIPS_REG_CP0_EPC:
                          MIPS_CPU(uc, mycpu)->env.CP0_EPC = *(mipsreg_t *)value;
-                         break;        
+                         break;      
+                case UC_MIPS_REG_CP0_CAUSE:
+                         MIPS_CPU(uc, mycpu)->env.CP0_Cause = *(mipsreg_t *)value;
+                         break;           
             }
         }
     }

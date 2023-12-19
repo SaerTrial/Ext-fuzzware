@@ -19,7 +19,7 @@ uc_err init_nvic(uc_engine *uc, uint32_t processor, uint32_t vtor, uint32_t num_
         }
         if (processor == PROCESSOR_PIC32MX)
             // TODO: to be extended
-            return ;
+            return UC_ERR_OK;
     }
-
+    return UC_ERR_OK;
 }

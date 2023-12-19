@@ -7,7 +7,6 @@
 #include "unicorn/unicorn.h"
 #include "cortexm_exception_nums.h"
 #include "cortexm_systick.h"
-#include "../interrupt_util.h"
 #include "../../util.h"
 #include "../../timer.h"
 #include "../../native_hooks.h"
@@ -74,7 +73,7 @@
 #define NVIC_INTERRUPT_ENTRY_LR_PSPSWITCH_FLAG 4
 #define NVIC_INTERRUPT_ENTRY_LR_THREADMODE_FLAG 8
 
-#define NVIC_LOWEST_PRIO 256
+#define CORTEXM_NVIC_LOWEST_PRIO 256
 
 
 struct CortexmNVIC {

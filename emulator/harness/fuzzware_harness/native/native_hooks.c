@@ -25,6 +25,7 @@
 #include <errno.h>
 #include <sys/shm.h>
 #include <sys/wait.h>
+#include <assert.h>
 
 // 0. Constants
 // ~10 MB of preallocated fuzzing buffer size

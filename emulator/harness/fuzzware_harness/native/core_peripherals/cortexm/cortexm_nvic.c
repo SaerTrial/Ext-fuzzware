@@ -5,6 +5,7 @@
 
 // We may not want to allow nested interrupts
 #define DISABLE_NESTED_INTERRUPTS
+#define DEBUG_NVIC
 // We can react to interrupt-related MMIO writes from the access handler
 #define DISABLE_IMMEDIATE_MMIOWRITE_RESPONSE
 
@@ -15,8 +16,8 @@
 // 0. Constants
 // Some Cortex M3 specific constants
 uint32_t EXCEPT_MAGIC_RET_MASK = 0xfffffff0;
-#define NVIC_VTOR_NONE 0xffffffff
-#define NVIC_NONE_ACTIVE 0
+#define CORTEXM_NVIC_VTOR_NONE 0xffffffff
+#define CORTEXM_NVIC_NONE_ACTIVE 0
 
 #define FRAME_SIZE 0x20
 
@@ -24,7 +25,7 @@ const uint8_t nvic_id[] = {
     0x00, 0xb0, 0x1b, 0x00, 0x0d, 0xe0, 0x05, 0xb1
 };
 #define NUM_SAVED_REGS 9
-static int saved_reg_ids[NUM_SAVED_REGS] = {
+static int cortexm_saved_reg_ids[NUM_SAVED_REGS] = {
     UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3,
     UC_ARM_REG_R12, UC_ARM_REG_LR, UC_ARM_REG_PC, UC_ARM_REG_XPSR,
     UC_ARM_REG_SP
@@ -117,7 +118,7 @@ static bool pending_exception_can_be_activated() {
     #endif
 
     #ifdef DISABLE_NESTED_INTERRUPTS
-    if(nvic.active_irq != NVIC_NONE_ACTIVE) {
+    if(nvic.active_irq != CORTEXM_NVIC_NONE_ACTIVE) {
         #ifdef DEBUG_NVIC
         puts("Already in handler, short-cutting exec prio to 0 to disable nesting/preemption."); fflush(stdout);
         #endif
@@ -189,15 +190,15 @@ static bool cortexm_recalc_prios() {
     return pending_prio_now_surpasses_active;
 }
 
-// bool is_disabled_by_config(uint32_t exception_no) {
-//     for(int i = 0; i < num_config_disabled_interrupts; ++i) {
-//         if(config_disabled_interrupts[i] == exception_no) {
-//             return true;
-//         }
-//     }
+bool cortexm_is_disabled_by_config(uint32_t exception_no) {
+    for(int i = 0; i < num_config_disabled_interrupts; ++i) {
+        if(config_disabled_interrupts[i] == exception_no) {
+            return true;
+        }
+    }
 
-//     return false;
-// }
+    return false;
+}
 
 void cortexm_pend_interrupt(uc_engine *uc, int exception_no) {
     #ifdef DEBUG_NVIC
@@ -305,7 +306,7 @@ static bool enable_irq(uc_engine *uc, int to_be_enabled) {
      *
      * Assumes that to_be_enabled is a valid exception index.
      */
-    if(nvic.ExceptionEnabled[to_be_enabled] != 1 && !is_disabled_by_config(to_be_enabled)) {
+    if(nvic.ExceptionEnabled[to_be_enabled] != 1 && !cortexm_is_disabled_by_config(to_be_enabled)) {
         nvic.ExceptionEnabled[to_be_enabled] = 1;
 
         if(to_be_enabled > nvic.highest_ever_enabled_exception_no) {
@@ -404,7 +405,7 @@ static bool cortexm_set_prio(int to_be_prio_changed, int new_prio) {
      * Set priority and return whether an nvic prio recalc is required.
      */
 
-    if(new_prio != nvic.ExceptionPriority[to_be_prio_changed] && !is_disabled_by_config(to_be_prio_changed)) {
+    if(new_prio != nvic.ExceptionPriority[to_be_prio_changed] && !cortexm_is_disabled_by_config(to_be_prio_changed)) {
         #ifdef DEBUG_NVIC
         printf("[NVIC] set priority for %d -> %d\n", to_be_prio_changed, new_prio); fflush(stdout);
         #endif
@@ -478,10 +479,10 @@ void hook_nvic_mmio_write(uc_engine *uc, uc_mem_type type,
             for(int i = 0; i < size * 8; ++i) {
                 if((value & 1)) {
                     uint32_t to_pend = base_ind + i;
-                    if(!is_disabled_by_config(to_pend)) {
+                    if(!cortexm_is_disabled_by_config(to_pend)) {
                         // We may want to directly react to such writes.
                         #ifdef DISABLE_IMMEDIATE_MMIOWRITE_RESPONSE
-                        pend_interrupt(uc, to_pend);
+                        cortexm_pend_interrupt(uc, to_pend);
                         #else
                         pend_from_mem_write(uc, to_pend);
                         #endif
@@ -647,7 +648,7 @@ static void handle_icsr_write(uc_engine *uc, uint32_t value) {
     }
 
     if(value & SCB_ICSR_NMIPENDSET_Msk) {
-        pend_interrupt(uc, EXCEPTION_NO_NMI);
+        cortexm_pend_interrupt(uc, EXCEPTION_NO_NMI);
     }
 }
 
@@ -719,7 +720,7 @@ void cortexm_hook_sysctl_mmio_write(uc_engine *uc, uc_mem_type type,
             break;
         case SYSCTL_STIR: // Software Triggered Interrupt Register
             to_pend = EXCEPTION_NO_EXTERNAL_START + (value & 0xff);
-            if(to_pend < EXCEPTION_NO_MAX && !is_disabled_by_config(to_pend)) {
+            if(to_pend < EXCEPTION_NO_MAX && !cortexm_is_disabled_by_config(to_pend)) {
                 pend_from_mem_write(uc, to_pend);
             }
             break;
@@ -778,7 +779,7 @@ void PopStack(uc_engine *uc) {
     }
 
     // Here we restore all registers in one go, including sp
-    if((err = uc_reg_write_batch(uc, &saved_reg_ids[0], (void **)(&saved_reg_ptrs[0]), NUM_SAVED_REGS)) != UC_ERR_OK){
+    if((err = uc_reg_write_batch(uc, &cortexm_saved_reg_ids[0], (void **)(&saved_reg_ptrs[0]), NUM_SAVED_REGS)) != UC_ERR_OK){
         if(do_print_exit_info) {
             puts("[NVIC ERROR] PopStack: restoring registers failed\n");
             print_state(uc);
@@ -820,7 +821,7 @@ void PushStack(uc_engine *uc, bool skip_instruction) {
     uint32_t spmask = ~(1 << 2);
 
     // Read the registers which are to be pushed afterwards
-    if((err = uc_reg_read_batch(uc, &saved_reg_ids[0], (void **)(&saved_reg_ptrs[0]), NUM_SAVED_REGS)) != UC_ERR_OK) {
+    if((err = uc_reg_read_batch(uc, &cortexm_saved_reg_ids[0], (void **)(&saved_reg_ptrs[0]), NUM_SAVED_REGS)) != UC_ERR_OK) {
         if(do_print_exit_info) {
             puts("[NVIC ERROR] PushStack: Failed reading registers\n");
             fflush(stdout);
@@ -876,7 +877,7 @@ void ExceptionReturn(uc_engine *uc, uint32_t ret_pc) {
     // Unicorn does not seem to handle faultmask
     // unset_faultmask();
 
-    if(ReturningExceptionNumber == NVIC_NONE_ACTIVE) {
+    if(ReturningExceptionNumber == CORTEXM_NVIC_NONE_ACTIVE) {
         if(do_print_exit_info) {
             puts("[NVIC ERROR] ExceptionReturn: Inconsistent state: no exception is active. This probably means we got here via a corrupted pc...");
             print_state(uc);
@@ -900,10 +901,10 @@ void ExceptionReturn(uc_engine *uc, uint32_t ret_pc) {
      * After deactivating the exception, re-calc to see if a
      * pending exception can now be taken.
      */
-    recalc_prios();
+    cortexm_recalc_prios();
 
     // Unset the active interrupt to allow active prio to drop
-    nvic.active_irq = NVIC_NONE_ACTIVE;
+    nvic.active_irq = CORTEXM_NVIC_NONE_ACTIVE;
     if(pending_exception_can_be_activated()) {
         // Can we tail-chain?
         cortexm_ExceptionEntry(uc, true, false);
@@ -937,9 +938,9 @@ void ExceptionReturn(uc_engine *uc, uint32_t ret_pc) {
 
     PopStack(uc);
 
-    if(((ret_pc & NVIC_INTERRUPT_ENTRY_LR_THREADMODE_FLAG) != 0) != (nvic.active_irq == NVIC_NONE_ACTIVE)) {
+    if(((ret_pc & NVIC_INTERRUPT_ENTRY_LR_THREADMODE_FLAG) != 0) != (nvic.active_irq == CORTEXM_NVIC_NONE_ACTIVE)) {
         if(do_print_exit_info) {
-            puts("[ExceptionReturn] expected thread mode return to end up with nvic.active_irq == NVIC_NONE_ACTIVE and vice versa.");
+            puts("[ExceptionReturn] expected thread mode return to end up with nvic.active_irq == CORTEXM_NVIC_NONE_ACTIVE and vice versa.");
             fflush(stdout);
         }
         force_crash(uc, UC_ERR_FETCH_PROT);
@@ -1031,7 +1032,7 @@ static void cortexm_ExceptionEntry(uc_engine *uc, bool is_tail_chained, bool ski
         * We need to handle the situation where we come from thread mode (no exception being handled),
         * and use the SP_process stack instead of the SP_main stack (which is always used in handler mode).
         */
-        if(nvic.active_irq == NVIC_NONE_ACTIVE) {
+        if(nvic.active_irq == CORTEXM_NVIC_NONE_ACTIVE) {
             // We are coming from Thread mode in case we are not tail-chained and had no previously active IRQ
             new_lr |= NVIC_INTERRUPT_ENTRY_LR_THREADMODE_FLAG;
 
@@ -1094,7 +1095,7 @@ static void cortexm_ExceptionEntry(uc_engine *uc, bool is_tail_chained, bool ski
     nvic.active_irq = ExceptionNumber;
 
     // We need to re-calculate the pending priority state
-    recalc_prios();
+    cortexm_recalc_prios();
 
     #ifdef DEBUG_NVIC
     puts("************ POST ExceptionEntry");
@@ -1172,7 +1173,7 @@ static void cortexm_nvic_block_hook(uc_engine *uc, uint64_t address, uint32_t si
         // maybe_activate(uc, false);
 
         #ifdef DISABLE_NESTED_INTERRUPTS
-        if( arg_nvic->active_irq == NVIC_NONE_ACTIVE) {
+        if( arg_nvic->active_irq == CORTEXM_NVIC_NONE_ACTIVE) {
         #endif
 
             int active_group_prio = arg_nvic->active_group_prio;
@@ -1204,7 +1205,7 @@ static void cortexm_nvic_block_hook(uc_engine *uc, uint64_t address, uint32_t si
 
     if (likely(GET_PRIMASK_NVIC(arg_nvic) == 0)) {
         #ifdef DISABLE_NESTED_INTERRUPTS
-        if( likely(arg_nvic->active_irq == NVIC_NONE_ACTIVE)) {
+        if( likely(arg_nvic->active_irq == CORTEXM_NVIC_NONE_ACTIVE)) {
         #endif
 
         basepri = GET_BASEPRI_NVIC(arg_nvic);
@@ -1264,10 +1265,10 @@ uc_err cortexm_init_nvic(uc_engine *uc, uint32_t vtor, uint32_t num_irq, uint32_
     nvic.ExceptionPriority[EXCEPTION_NO_NMI] = -2;
     nvic.highest_ever_enabled_exception_no = EXCEPTION_NO_SYSTICK;
 
-    nvic.active_irq = NVIC_NONE_ACTIVE;
-    nvic.pending_irq = NVIC_NONE_ACTIVE;
-    nvic.active_group_prio = NVIC_LOWEST_PRIO;
-    nvic.pending_prio = NVIC_LOWEST_PRIO;
+    nvic.active_irq = CORTEXM_NVIC_NONE_ACTIVE;
+    nvic.pending_irq = CORTEXM_NVIC_NONE_ACTIVE;
+    nvic.active_group_prio = CORTEXM_NVIC_LOWEST_PRIO;
+    nvic.pending_prio = CORTEXM_NVIC_LOWEST_PRIO;
     cortexm_set_prigroup(NVIC_RESET_VAL_PRIGROUP);
 
     // B1.5.5 Reset Behavior
@@ -1295,7 +1296,7 @@ uc_err cortexm_init_nvic(uc_engine *uc, uint32_t vtor, uint32_t num_irq, uint32_
     }
 
     // Set the vtor. If it is uninitialized, read it from actual (restored) process memory
-    if(vtor == NVIC_VTOR_NONE) {
+    if(vtor == CORTEXM_NVIC_VTOR_NONE) {
         uc_mem_read(uc, SYSCTL_VTOR, &nvic.vtor, sizeof(nvic.vtor));
         printf("[NVIC] Recovered vtor base: %x\n", nvic.vtor); fflush(stdout);
     } else {

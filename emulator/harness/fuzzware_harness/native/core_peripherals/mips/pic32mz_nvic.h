@@ -79,6 +79,26 @@ typedef struct CP0_status
   uint32_t IPL:3;
 } PIC32MZ_CP0_status;
 
+
+typedef struct CP0_cause
+{
+  uint32_t :2;
+  uint32_t EXCCODE:5;
+  uint32_t :1;
+  uint32_t IP0:1;
+  uint32_t IP1:1;
+  uint32_t RILP:3;
+  uint32_t :10;
+  uint32_t IV:1;
+} PIC32MZ_CP0_cause;
+
+// extra marcro for irqs of core software interrupts
+#define PIC32MZ_IRQ_Core_Software_Interrupt_0 1
+#define PIC32MZ_IRQ_Core_Software_Interrupt_1 2
+
+
+
+
 typedef struct IFS
 {
   uint32_t IE:1;
@@ -94,7 +114,7 @@ typedef struct IFS
 #define PIC32MZ_Sub_Prio_3(x) ((x & 0x3000000) >> 24) 
 #define PIC32MZ_Prio_3(x) ((x & 0x1C000000) >> 26)
 
-// marco for getting a bit at a certain point
+// marco for getting nth bit at a certain point
 #define PIC32MZ_Get_Bit(data, n) ((data & ( 1 << n )) >> n)
 
 // marco for setting a bit at a certain point
