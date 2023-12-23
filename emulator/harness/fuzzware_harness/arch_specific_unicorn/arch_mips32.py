@@ -236,6 +236,9 @@ class ContextMIPS32(Context):
     def function_args(self, arg_num = 4):
         return (self._uc.regs.a0, self._uc.regs.a1, self._uc.regs.a2, self._uc.regs.a3)[0:arg_num]    
 
+    def change_return_vals(self, val):
+        self._uc.regs.v0 = self._uc.regs.v1 = val
+
     def return_zero(self):
         self._uc.regs.v0 = 0
         self._uc.regs.v1 = 0

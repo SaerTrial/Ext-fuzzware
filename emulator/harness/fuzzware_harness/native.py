@@ -81,7 +81,7 @@ def emulate(uc, fuzz_file_path, prefix_input_file_path=None):
     native_lib.emulate(uc._uch, fuzz_file_path.encode(), prefix_input_file_path)
 
 def get_fuzz(uc, size):
-    ptr = (ctypes.c_char * size).from_address(native_lib.get_fuzz_ptr(uc, size))
+    ptr = (ctypes.c_char * size).from_address(native_lib.get_fuzz_ptr(uc._uch, size))
     return ptr.raw
 
 def fuzz_consumed():
@@ -317,7 +317,7 @@ def load_native_lib(native_lib_path):
 
 def do_exit(uc, status, sig=-1):
     global native_lib
-    native_lib.do_exit(uc, status, sig)
+    native_lib.do_exit(uc._uch, status, sig)
 
 def init(uc, mmio_regions, exit_at_bbls, exit_at_hit_num, do_print_exit_info, fuzz_consumption_timeout=DEFAULT_FUZZ_CONSUMPTION_TIMEOUT, instr_limit=DEFAULT_BASIC_BLOCK_LIMIT):
     global native_lib

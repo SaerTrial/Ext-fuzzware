@@ -44,6 +44,12 @@
 #define PIC32MZ_IEC4 0x100
 #define PIC32MZ_IEC5 0x110
 
+
+// interrupt set
+// note that enabling an interrupt could be done either in IECx or IECxSET registers
+#define PIC32MZ_OFFSET_IECxSET 0x8
+
+
 // interrupt priority
 #define PIC32MZ_IPC0 0x140
 #define PIC32MZ_IPC1 0x150
@@ -167,7 +173,7 @@ struct Pic32mzNVIC {
     int pending_prio;
     int pending_sub_prio;
     int pending_irq;
-
+    uint32_t EPC;
     // Vector table base address
     uint32_t vtor;
 

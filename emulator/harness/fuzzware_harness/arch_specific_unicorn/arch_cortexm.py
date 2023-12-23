@@ -163,6 +163,10 @@ class ContextARMCortexM(Context):
     def function_args(self, arg_num = 4):
         return (self._uc.regs.r0, self._uc.regs.r1, self._uc.regs.r2, self._uc.regs.r3)[0:arg_num]
 
+    def change_return_vals(self, val):
+        self._uc.regs.r0 = val
+
+
     def return_zero(self):
         self._uc.regs.r0 = 0
 
