@@ -6,7 +6,7 @@
 #define PIC32MZ_NVIC_HIGHEST_PRIO 7
 #define PIC32MZ_NVIC_HIGHEST_SUB_PRIO 3
 #define PIC32MZ_NVIC_LOWEST_SUB_PRIO 0
-#define DEBUG_NVIC
+//#define DEBUG_NVIC
 
 // We may not want to allow nested interrupts
 #define DISABLE_NESTED_INTERRUPTS

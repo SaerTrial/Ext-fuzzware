@@ -5,7 +5,7 @@
 
 // We may not want to allow nested interrupts
 #define DISABLE_NESTED_INTERRUPTS
-#define DEBUG_NVIC
+//#define DEBUG_NVIC
 // We can react to interrupt-related MMIO writes from the access handler
 #define DISABLE_IMMEDIATE_MMIOWRITE_RESPONSE
 

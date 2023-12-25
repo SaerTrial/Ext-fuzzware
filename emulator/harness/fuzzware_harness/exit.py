@@ -38,4 +38,4 @@ def do_exit(uc, status, kill_signal=-1):
     from .native import do_exit as native_do_exit
 
     # Relay to native code to make sure any native exit hooks are invoked
-    native_do_exit(uc._uch, status, kill_signal)
+    native_do_exit(uc, status, kill_signal)

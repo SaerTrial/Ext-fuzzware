@@ -222,8 +222,9 @@ bool hook_invalid_write_on_demand_page_restore_handle(uc_engine *uc, uc_mem_type
     uint64_t address, int size, int64_t value, void *user_data) {
     uint64_t aligned = address & (~(PAGE_SIZE-1));
     uint32_t old_perms = 0;
-    uint32_t pc;
+    
     #ifdef DEBUG_STATE_RESTORE
+    uint32_t pc;
     uc_reg_read(uc, return_pc_const(uc), &pc);
     printf("[hook_invalid_write_on_demand_page_restore_handle] pc: 0x%x, addr: 0x%lx, aligned: 0x%lx, data=0x%016lx\n", pc, address, aligned, value);
     fflush(stdout);
