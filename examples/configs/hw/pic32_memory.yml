@@ -1,0 +1,4 @@
+memory_map:
+  mmio: {base_addr:  0xbf800000, size: 0xfffff, permissions: rw-}  
+ 
+# datasheet: 

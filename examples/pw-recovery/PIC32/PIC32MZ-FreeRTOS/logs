@@ -1,0 +1,31 @@
+INFO:emulator:Loading configuration in config.yml
+INFO:emulator:	Including configuration from /home/user/fuzzware/targets/pw-recovery/PIC32/PIC32MZ-FreeRTOS/syms.yml
+INFO:emulator:Found path '/home/user/fuzzware/targets/pw-recovery/PIC32/PIC32MZ-FreeRTOS/basic_exercises.elf' for pattern './basic_exercises.elf'
+INFO:emulator:Found path '/home/user/fuzzware/targets/pw-recovery/PIC32/PIC32MZ-FreeRTOS/basic_exercises.elf' for pattern './basic_exercises.elf'
+INFO:emulator:Found path '/home/user/fuzzware/targets/pw-recovery/PIC32/PIC32MZ-FreeRTOS/basic_exercises.elf' for pattern './basic_exercises.elf'
+DEBUG:emulator:Mapping region sram at 0x80000, perms: 3
+INFO:emulator:Using file /home/user/fuzzware/targets/pw-recovery/PIC32/PIC32MZ-FreeRTOS/basic_exercises.elf, offset 00000000, load_offset: 00000000, file_size: 00080000
+DEBUG:emulator:Mapping region text at 0x4000, perms: 5
+INFO:emulator:Using file /home/user/fuzzware/targets/pw-recovery/PIC32/PIC32MZ-FreeRTOS/basic_exercises.elf, offset 00020000, load_offset: 00000000, file_size: 00004000
+DEBUG:emulator:Mapping region boot at 0x1000, perms: 5
+INFO:emulator:Using file /home/user/fuzzware/targets/pw-recovery/PIC32/PIC32MZ-FreeRTOS/basic_exercises.elf, offset 00040000, load_offset: 00000000, file_size: 00001000
+DEBUG:emulator:setting vtor: 0xbfc00000
+INFO:emulator:Found entry_image_base: 0xbfc00000
+DEBUG:emulator:Mapping region mmio_1 at 0x10000, perms: 3
+DEBUG:emulator:Mapping region mmio_2 at 0xe9000, perms: 3
+DEBUG:emulator:Mapping region interrupt_control_registers at 0x1000, perms: 3
+INFO:emulator:Handling function UART2_Read at 0x9d002ae0 with fuzzware_harness.user_hooks.fuzz.return_fuzz_byte
+DEBUG:emulator:Calling init_nvic with vtor=0xbfc00000, num_vecs: 256
+add_mmio_region called! hooking 0xbf800000 - 0xbf810000
+add_mmio_region called! hooking 0xbf811000 - 0xbf8fa000
+-----------------mem_regions----------------
+region_start:0x80000000, region_end:0x8007ffff, perms: 3
+region_start:0x9d000000, region_end:0x9d003fff, perms: 5
+region_start:0xbfc00000, region_end:0xbfc00fff, perms: 5
+region_start:0xbf800000, region_end:0xbf80ffff, perms: 3
+region_start:0xbf811000, region_end:0xbf8f9fff, perms: 3
+region_start:0xbf810000, region_end:0xbf810fff, perms: 3
+[add_interrupt_trigger] for addr=0x9d0001f0 irq=4, fuzz_mode=0
+[add_interrupt_trigger] for addr=0x9d001980 irq=4, fuzz_mode=0
+[NVIC] init_nvic called with vtor: bfc00000, num_irq: 256
+[NVIC] init_nvic called with vtor: bfc00000, num_irq: 256

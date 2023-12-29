@@ -1,0 +1,33 @@
+include:
+#- ./../../configs/hw/boards/pic32mz_memory.yml
+- ./syms.yml
+
+memory_map:
+  sram:
+    base_addr: 0xa0000000
+    file: ./D32_MX795.elf
+    permissions: rw-
+    size: 0x8000
+    file_offset: 0x30000
+  text:
+    base_addr: 0x9d005180
+    file: ./D32_MX795.elf
+    permissions: rwx
+    size: 0x10000
+    file_offset: 0x15180
+    is_entry: True
+  mmio: 
+    base_addr:  0xbf800000
+    size: 0x100000
+    permissions: rw-
+# handlers:
+#  SYS_Initialize: null
+ 
+arch: MIPS32
+endianness: LE
+initial_sp: 0xA0007EF8
+entry_point: 0x9d006000
+
+use_timers: false
+use_nvic: false
+use_systick: false
