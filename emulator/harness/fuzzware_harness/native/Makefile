@@ -13,7 +13,8 @@ LDFLAGS += -shared -L$(LIBDIR) -lunicorn
 
 SOURCES = native_hooks.c timer.c interrupt_triggers.c util.c state_snapshotting.c native_tracing.c uc_snapshot.c arch_specifics.c
 SOURCES += core_peripherals/cortexm/cortexm_nvic.c core_peripherals/cortexm/cortexm_systick.c
-SOURCES += core_peripherals/mips/pic32mz_nvic.c core_peripherals/interrupt_common.c
+SOURCES += core_peripherals/mips/pic32mz_nvic.c core_peripherals/mips/pic32mx_nvic.c core_peripherals/interrupt_common.c
+
 
 
 BINS = $(SOURCES:.c=$(BIN_EXT))

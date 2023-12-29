@@ -64,6 +64,9 @@
 #define PIC32MZ_IPC10 0x1e0
 #define PIC32MZ_IPC11 0x1f0
 #define PIC32MZ_IPC12 0x200
+#define PIC32MZ_IPC53 0x490
+
+#define PIC32MZ_OFFSET_IPCxSET 0x8
 
 // OFFx registers
 // OFFx = 0x540 + 0x4 * x
@@ -86,7 +89,7 @@ typedef struct CP0_status
 } PIC32MZ_CP0_status;
 
 
-typedef struct CP0_cause
+typedef struct _PIC32MZ_CP0_cause
 {
   uint32_t :2;
   uint32_t EXCCODE:5;
@@ -96,12 +99,16 @@ typedef struct CP0_cause
   uint32_t RILP:3;
   uint32_t :10;
   uint32_t IV:1;
+  uint32_t :3;
+  uint32_t DC:1;
+  uint32_t CE:2;
+  uint32_t TI:1;
 } PIC32MZ_CP0_cause;
 
 // extra marcro for irqs of core software interrupts
 #define PIC32MZ_IRQ_Core_Software_Interrupt_0 1
 #define PIC32MZ_IRQ_Core_Software_Interrupt_1 2
-
+#define PIC32MZ_IRQ_Core_Timer 0
 
 
 
