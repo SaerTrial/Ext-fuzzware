@@ -100,6 +100,7 @@ struct CPUMIPSFPUContext {
     fpr_t fpr[32];
     float_status fp_status;
     /* fpu implementation/revision register (fir) */
+    uint32_t fcr0_overflow_canary;
     uint32_t fcr0;
 #define FCR0_UFRP 28
 #define FCR0_F64 22

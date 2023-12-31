@@ -5,7 +5,6 @@ include:
 memory_map:
   sram:
     base_addr: 0xA0000000
-    file: ./basic_exercises.elf
     permissions: rw-
     size: 0x20000
     # file_offset: 0x010000
@@ -59,6 +58,7 @@ interrupt_triggers:
   GPIO_trigger:
     addr: BME280_GetTempReading
     irq: 32
+
 use_nvic: true  
 nvic:
   # interrupt vector base address (alternative name: 'addr')
