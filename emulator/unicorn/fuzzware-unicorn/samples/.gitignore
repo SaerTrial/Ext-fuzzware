@@ -1,5 +1,5 @@
-!*.c
-sample_*
-shellcode*
-mem_apis*
+#!*.c
+#sample_*
+#shellcode*
+#mem_apis*
 
