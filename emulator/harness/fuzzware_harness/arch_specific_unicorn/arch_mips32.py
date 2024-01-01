@@ -163,8 +163,11 @@ nop == b"\x00\x00\x00\x00"
 """
 
 LOAD_V0 = None
-MIPS32_RET = b"\x08\x00\xE0\x03"
+
+# TODO: replace thoses with archinfo, but I've found that CortexM in archinfo doesn't match bytecode of ret instruction
+MIPS32_RET = b"\x08\x00\xE0\x03\x25\x08\x20\x00"
 MIPS32_NOP = b"\x00\x00\x00\x00"
+
 
 class PatchMIPS32Patch(Patch):
     def __init__(self, endness) -> None:
