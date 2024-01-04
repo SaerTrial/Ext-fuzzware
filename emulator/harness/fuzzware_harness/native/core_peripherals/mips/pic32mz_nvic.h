@@ -49,6 +49,8 @@
 // note that enabling an interrupt could be done either in IECx or IECxSET registers
 #define PIC32MZ_OFFSET_IECxSET 0x8
 
+#define PIC32MZ_OFFSET_IECxCLR 0x4
+
 
 // interrupt priority
 #define PIC32MZ_IPC0 0x140

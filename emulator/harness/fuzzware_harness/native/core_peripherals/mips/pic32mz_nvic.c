@@ -398,6 +398,58 @@ void pic32mz_update_enabled_interrupts(uc_engine *uc, uint32_t IEC_index, uint32
 }
 
 
+void pic32mz_update_disabled_irq_list(int irq){
+    
+
+    for(int i = 0; i < pic32mz_nvic.num_enabled; ++i) {
+        if(pic32mz_nvic.enabled_irqs[i] == irq) {
+            pic32mz_nvic.num_enabled--;
+            // we don't care about the last position
+            if (i != (PIC32MZ_NVIC_NUM_SUPPORTED_INTERRUPTS - 1) )
+            memmove(&pic32mz_nvic.enabled_irqs[i], &pic32mz_nvic.enabled_irqs[i+1], (pic32mz_nvic.num_enabled-i) * sizeof(pic32mz_nvic.enabled_irqs[0]));
+            
+            #ifdef DEBUG_NVIC
+            printf("remove irq %d from the list\n", irq);
+            fflush(stdout);
+            #endif
+            
+            break;
+        }
+    }
+
+}
+
+
+// along the execution, some interrupts maybe disabled in firmware logic
+void pic32mz_update_disabled_interrupts(uc_engine *uc, uint32_t IEC_index, uint32_t value){
+    int cur_bit = 0;
+    int irq = 0;
+
+    // Hack: we not only record enabled interrupts but also update their priority in pic32mz_nvic
+    // in most cases, priority is defined before the interrupt is enabled
+
+    while (cur_bit < 32){
+        if (PIC32MZ_Get_Bit(value, cur_bit) == 1){
+
+            irq = IEC_index * 32 + cur_bit;
+
+            if(pic32mz_is_disabled_by_config(irq)) break;
+            
+            pic32mz_nvic.InterruptEnabled[irq] = 0;
+
+            pic32mz_update_disabled_irq_list(irq);
+
+
+            break;
+        }
+        cur_bit ++;
+    }
+
+}
+
+
+
+
 void pic32mz_update_enabled_interrupts_priority(uc_engine *uc, uint32_t offset, uint32_t priority){
         uint32_t index = ((offset & ~(0xf)) - PIC32MZ_IPC0 )/ 0x10;
         int irq = index * 4;
@@ -410,9 +462,9 @@ void pic32mz_update_enabled_interrupts_priority(uc_engine *uc, uint32_t offset, 
             
             if(pic32mz_is_disabled_by_config(irq)) return;
             
-            pic32mz_nvic.InterruptEnabled[irq] = 1;
+            // pic32mz_nvic.InterruptEnabled[irq] = 1;
 
-            pic32mz_update_enabled_irq_list(irq);
+            // pic32mz_update_enabled_irq_list(irq);
 
             pic32mz_nvic.InterruptPriority[irq] = PIC32MZ_Prio_0(priority);
             pic32mz_nvic.InterruptSubPriority[irq] = PIC32MZ_Sub_Prio_0(priority);
@@ -421,9 +473,9 @@ void pic32mz_update_enabled_interrupts_priority(uc_engine *uc, uint32_t offset, 
             irq += 1;
             if(pic32mz_is_disabled_by_config(irq)) return;
             
-            pic32mz_nvic.InterruptEnabled[irq] = 1;
+            // pic32mz_nvic.InterruptEnabled[irq] = 1;
 
-            pic32mz_update_enabled_irq_list(irq);
+            // pic32mz_update_enabled_irq_list(irq);
 
             pic32mz_nvic.InterruptPriority[irq] = PIC32MZ_Prio_1(priority);
             pic32mz_nvic.InterruptSubPriority[irq] = PIC32MZ_Sub_Prio_1(priority);
@@ -432,9 +484,9 @@ void pic32mz_update_enabled_interrupts_priority(uc_engine *uc, uint32_t offset, 
             irq += 2;
             if(pic32mz_is_disabled_by_config(irq)) return;
             
-            pic32mz_nvic.InterruptEnabled[irq] = 1;
+            // pic32mz_nvic.InterruptEnabled[irq] = 1;
 
-            pic32mz_update_enabled_irq_list(irq);
+            // pic32mz_update_enabled_irq_list(irq);
             pic32mz_nvic.InterruptPriority[irq] = PIC32MZ_Prio_2(priority);
             pic32mz_nvic.InterruptSubPriority[irq] = PIC32MZ_Sub_Prio_2(priority);
         }
@@ -443,9 +495,9 @@ void pic32mz_update_enabled_interrupts_priority(uc_engine *uc, uint32_t offset, 
 
             if(pic32mz_is_disabled_by_config(irq)) return;
             
-            pic32mz_nvic.InterruptEnabled[irq] = 1;
+            // pic32mz_nvic.InterruptEnabled[irq] = 1;
 
-            pic32mz_update_enabled_irq_list(irq);
+            // pic32mz_update_enabled_irq_list(irq);
 
             pic32mz_nvic.InterruptPriority[irq] = PIC32MZ_Prio_3(priority);
             pic32mz_nvic.InterruptSubPriority[irq] = PIC32MZ_Sub_Prio_3(priority);
@@ -575,6 +627,26 @@ void pic32mz_hook_sysctl_mmio_write(uc_engine *uc, uc_mem_type type,
         case PIC32MZ_IEC5 + PIC32MZ_OFFSET_IECxSET:
             pic32mz_update_enabled_interrupts(uc, 5, value);
             break;        
+
+        // disable an interrupt
+        case PIC32MZ_IEC0 + PIC32MZ_OFFSET_IECxCLR:
+            pic32mz_update_disabled_interrupts(uc, 0, value);
+            break;
+        case PIC32MZ_IEC1 + PIC32MZ_OFFSET_IECxCLR:
+            pic32mz_update_disabled_interrupts(uc, 1, value);
+            break;
+        case PIC32MZ_IEC2 + PIC32MZ_OFFSET_IECxCLR:
+            pic32mz_update_disabled_interrupts(uc, 2, value);
+            break;
+        case PIC32MZ_IEC3 + PIC32MZ_OFFSET_IECxCLR:
+            pic32mz_update_disabled_interrupts(uc, 3, value);
+            break;
+        case PIC32MZ_IEC4 + PIC32MZ_OFFSET_IECxCLR:
+            pic32mz_update_disabled_interrupts(uc, 4, value);
+            break;
+        case PIC32MZ_IEC5 + PIC32MZ_OFFSET_IECxCLR:
+            pic32mz_update_disabled_interrupts(uc, 5, value);
+            break;            
 
         // interrupt CLR register at the offset of 4 bytes in the associated register, e.g., IFS0CLR
         // crucial to terminate an ISR by setting as non-active
