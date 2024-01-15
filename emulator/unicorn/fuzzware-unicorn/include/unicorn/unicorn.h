@@ -212,6 +212,18 @@ typedef uint32_t (*uc_cb_insn_in_t)(uc_engine *uc, uint32_t port, int size, void
 */
 typedef void (*uc_cb_insn_out_t)(uc_engine *uc, uint32_t port, int size, uint32_t value, void *user_data);
 
+
+/*
+  Callback function for ERET instruction of MIPS32
+
+  @value: EPC
+*/
+typedef void (*uc_cb_insn_t)(uc_engine *uc, uint32_t value, void *user_data);
+
+
+
+
+
 // All type of memory accesses for UC_HOOK_MEM_*
 typedef enum uc_mem_type {
     UC_MEM_READ = 16,   // Memory is read from

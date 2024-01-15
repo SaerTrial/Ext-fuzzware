@@ -227,6 +227,15 @@ typedef enum UC_MIPS_REG {
     UC_MIPS_REG_LO3 = UC_MIPS_REG_HI3,
 } UC_MIPS_REG;
 
+
+typedef enum uc_mips_insn {
+    UC_MIPS_INS_INVALID = 0,
+    UC_MIPS_INS_ERET,
+    UC_MIPS_INS_DI,
+    UC_MIPS_INS_EI,
+} uc_mips_insn;
+
+
 #ifdef __cplusplus
 }
 #endif

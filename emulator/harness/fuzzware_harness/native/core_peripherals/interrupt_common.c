@@ -19,12 +19,21 @@ uc_err init_nvic(uc_engine *uc, uint32_t processor, uint32_t vtor, uint32_t num_
             nth_enabled_irq_num = pic32mz_nth_enabled_irq_num;
             pic32mz_init_nvic(uc, vtor, num_irq, p_interrupt_limit, num_disabled_interrupts, disabled_interrupts);
         }
-        if (processor == PROCESSOR_PIC32MX){
+        if (processor == PROCESSOR_PIC32MX5XX6XX7XX){
             nvic_set_pending = pic32mx_nvic_set_pending;
             get_num_enabled = pic32mx_get_num_enabled;
             nth_enabled_irq_num = pic32mx_nth_enabled_irq_num;
-            pic32mx_init_nvic(uc, vtor, num_irq, p_interrupt_limit, num_disabled_interrupts, disabled_interrupts);
+            pic32mx_init_nvic(uc, vtor, num_irq, p_interrupt_limit, num_disabled_interrupts, disabled_interrupts, PROCESSOR_PIC32MX5XX6XX7XX);
         }
+        if (processor == PROCESSOR_PIC32MX3XX4XX){
+            nvic_set_pending = pic32mx_nvic_set_pending;
+            get_num_enabled = pic32mx_get_num_enabled;
+            nth_enabled_irq_num = pic32mx_nth_enabled_irq_num;
+            pic32mx_init_nvic(uc, vtor, num_irq, p_interrupt_limit, num_disabled_interrupts, disabled_interrupts, PROCESSOR_PIC32MX3XX4XX);
+        }
+
+
+        
     }
     return UC_ERR_OK;
 }

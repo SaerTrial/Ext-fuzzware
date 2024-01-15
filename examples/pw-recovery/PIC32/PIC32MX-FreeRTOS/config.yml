@@ -11,7 +11,7 @@ memory_map:
     base_addr: 0x9d000000
     file: ./basic_exercises.elf
     permissions: r-x
-    size: 0x4000
+    size: 0x5000
     file_offset: 0x10000
   isr:
     base_addr: 9fc01000
@@ -40,20 +40,26 @@ memory_map:
     permissions: rw-
 
 interrupt_triggers:
-  RTOS_timer:
+  idle_irq:
+    every_nth_tick: 200
+    fuzz_mode: round_robin
+  #random_irq:
+  #  addr: xTaskGetTickCount
+  #  fuzz_mode: round_robin
+   
+  #RTOS_timer:
     # time-based
-    # every_nth_tick: 50
-    addr: xTaskGetTickCount
+  #  addr: xTaskGetTickCount
     # fixed irq number
-    irq: 4
-  RTOS_timer2:
-    addr: xTaskResumeAll
-    irq: 4
+  #  irq: 4
+  #RTOS_timer2:
+  #  addr: xTaskResumeAll
+  #  irq: 4
 
 handlers:
-  UART1_Read:
-    handler: fuzzware_harness.user_hooks.fuzz.return_fuzz_byte
-    do_return: True
+  #UART1_Read:
+  #  handler: fuzzware_harness.user_hooks.fuzz.return_fuzz_byte
+  #  do_return: True
   UART1_Write: null
 
 use_nvic: true  
@@ -62,7 +68,8 @@ nvic:
   vtor: 0
   # configure the maximum number of vectors in the nvic, defaults to 256
   num_vecs: 256
-  processor: pic32mx  
+  processor: pic32mx4XX
+  disabled_irqs: [38]
 
 
 arch: MIPS32

@@ -2117,6 +2117,18 @@ target_ulong helper_di(CPUMIPSState *env)
     target_ulong t0 = env->CP0_Status;
 
     env->CP0_Status = t0 & ~(1 << CP0St_IE);
+
+    struct hook *hook;
+
+    HOOK_FOREACH_VAR_DECLARE;
+    HOOK_FOREACH(env->uc, hook, UC_HOOK_INSN) {
+        if (hook->to_delete)
+            continue;
+        if (hook->insn == UC_MIPS_INS_DI)
+            ((uc_cb_insn_t)hook->callback)(env->uc, NULL, hook->user_data);
+    }
+
+
     return t0;
 }
 
@@ -2125,6 +2137,17 @@ target_ulong helper_ei(CPUMIPSState *env)
     target_ulong t0 = env->CP0_Status;
 
     env->CP0_Status = t0 | (1 << CP0St_IE);
+
+    struct hook *hook;
+
+    HOOK_FOREACH_VAR_DECLARE;
+    HOOK_FOREACH(env->uc, hook, UC_HOOK_INSN) {
+        if (hook->to_delete)
+            continue;
+        if (hook->insn == UC_MIPS_INS_EI)
+            ((uc_cb_insn_t)hook->callback)(env->uc, NULL, hook->user_data);
+    }
+
     return t0;
 }
 
@@ -2175,6 +2198,16 @@ static void set_pc(CPUMIPSState *env, target_ulong error_pc)
 
 void helper_eret(CPUMIPSState *env)
 {
+    struct hook *hook;
+
+    HOOK_FOREACH_VAR_DECLARE;
+    HOOK_FOREACH(env->uc, hook, UC_HOOK_INSN) {
+        if (hook->to_delete)
+            continue;
+        if (hook->insn == UC_MIPS_INS_ERET)
+            ((uc_cb_insn_t)hook->callback)(env->uc, env->CP0_EPC, hook->user_data);
+    }
+
     debug_pre_eret(env);
     if (env->CP0_Status & (1 << CP0St_ERL)) {
         set_pc(env, env->CP0_ErrorEPC);

@@ -7,7 +7,8 @@
 #define INTR_COMMON_H
 
 #define PROCESSOR_PIC32MZ 0x1
-#define PROCESSOR_PIC32MX 0x2
+#define PROCESSOR_PIC32MX5XX6XX7XX 0x2
+#define PROCESSOR_PIC32MX3XX4XX 0x3
 
 uc_err init_nvic(uc_engine *uc, uint32_t processor,uint32_t vtor, uint32_t num_irq, uint32_t p_interrupt_limit, uint32_t num_disabled_interrupts, uint32_t *disabled_interrupts);
 

@@ -6,7 +6,7 @@
 #define PIC32MZ_NVIC_HIGHEST_PRIO 7
 #define PIC32MZ_NVIC_HIGHEST_SUB_PRIO 3
 #define PIC32MZ_NVIC_LOWEST_SUB_PRIO 0
-// #define DEBUG_NVIC
+#define DEBUG_NVIC
 // We may not want to allow nested interrupts
 #define DISABLE_NESTED_INTERRUPTS
 
@@ -14,21 +14,24 @@ uint32_t pic32mz_interrupt_limit = 0;
 uint32_t pic32mz_num_config_disabled_interrupts = 0;
 uint32_t *pic32mz_config_disabled_interrupts = NULL;
 uc_hook pic32mz_nvic_block_hook_handle = -1, pic32mz_nvic_exception_return_hook_handle=-1,
-    pic32mz_hook_mmio_write_handle = -1, pic32mz_hook_mmio_read_handle = -1;
+    pic32mz_hook_mmio_write_handle = -1, pic32mz_hook_mmio_read_handle = -1, pic32mz_hook_eret = -1,
+    pic32mz_hook_ei = -1, pic32mz_hook_di = -1;
 uint32_t pic32mz_nesting_detector = 0;
+
 
 // 3. Dynamic State (required for state restore)
 struct Pic32mzNVIC pic32mz_nvic __attribute__ ((aligned (64))) = {
     .vtor = PIC32MZ_EBASE, // an idle assignment, we don't need this actually
     .NonPersistantIRQs = {0,1,2,3,4,7,8,9,12,13,14,17,18,19,22,23,24,27,28,31,32,35,36,39,40,43,104,130,131,134,135,136,137,138,139,140,141,166,167},
-    .num_enabled = 0
+    .num_enabled = 0,
+    .EPC = 0xffffffff
 };
 
 // forward declaration
 static bool pic32mz_recalc_prios();
 static void pic32mz_ExceptionEntry(uc_engine *uc);
 bool pic32mz_is_disabled_by_config(int exception_no);
-static void pic32mz_core_software_interrupt_controller(uc_engine *uc);
+static void pic32mz_core_software_interrupt_controller(struct Pic32mzNVIC* arg_nvic);
 void pic32mz_update_enabled_irq_list(int irq);
 
 
@@ -38,17 +41,19 @@ static void pic32mz_nvic_block_hook(uc_engine *uc, uint64_t address, uint32_t si
 
         #ifdef DISABLE_NESTED_INTERRUPTS
             // Hack: prevent nested interrupt from happening
-            if (pic32mz_nesting_detector == 1){
-                if ((uint32_t)address == arg_nvic->EPC){
-                    pic32mz_nesting_detector = 0;
-                }else{
-                    return;
-                }
-            }
+            // if (pic32mz_nesting_detector == 1){
+            //     if ((uint32_t)address == arg_nvic->EPC){
+            //         pic32mz_nesting_detector = 0;
+            //         arg_nvic->EPC = 0xffffffff;
+            //     }else{
+            //         return;
+            //     }
+            // }
         #endif
         
 
-            pic32mz_core_software_interrupt_controller(uc);
+            pic32mz_core_software_interrupt_controller(arg_nvic);
+            if (arg_nvic->is_interrupt_disable) return;
             #ifdef DISABLE_NESTED_INTERRUPTS
             if( arg_nvic->active_irq == PIC32MZ_NVIC_NONE_ACTIVE ) {
             #endif
@@ -64,105 +69,130 @@ static void pic32mz_nvic_block_hook(uc_engine *uc, uint64_t address, uint32_t si
 //  since generally they are not configured in interrupt control MMIO range but in CP0 cause register
 //  Cause: application code doesn't set up prioritization for these, we, by default, prioritize them in a manner, like lowest irq with highest prio
 //  In the meanwhile, we assume these two are in higher priority than other interrupt sources
-static void pic32mz_core_software_interrupt_controller(uc_engine *uc){
+static void pic32mz_core_software_interrupt_controller(struct Pic32mzNVIC* arg_nvic){
     PIC32MZ_CP0_cause CP0_cause;
-    uc_reg_read(uc, UC_MIPS_REG_CP0_CAUSE, &CP0_cause);
+    uc_reg_read(arg_nvic->uc, UC_MIPS_REG_CP0_CAUSE, &CP0_cause);
+    bool pending = false;
+
     // core software interrupt 0
     if (CP0_cause.IP0){
         // Caution: only execute once
-        if (pic32mz_nvic.InterruptEnabled[PIC32MZ_IRQ_Core_Software_Interrupt_0] == 0){
-            pic32mz_nvic.InterruptEnabled[PIC32MZ_IRQ_Core_Software_Interrupt_0] = 1;
-            pic32mz_nvic.InterruptPriority[PIC32MZ_IRQ_Core_Software_Interrupt_0] = PIC32MZ_NVIC_HIGHEST_PRIO;
-            pic32mz_nvic.InterruptSubPriority[PIC32MZ_IRQ_Core_Software_Interrupt_0] = PIC32MZ_NVIC_HIGHEST_SUB_PRIO;
-            pic32mz_update_enabled_irq_list(PIC32MZ_IRQ_Core_Software_Interrupt_0);
-        }
-        pic32mz_nvic.InterruptPending[PIC32MZ_IRQ_Core_Software_Interrupt_0] = 1;
-        pic32mz_recalc_prios();
-    }else{
-            // In general cases, ISR code will clear pending bit via a MMIO write to the interrupt controller
-            // then this handling is redundant
-            #ifdef DEBUG_NVIC
-            if (pic32mz_nvic.InterruptPending[PIC32MZ_IRQ_Core_Software_Interrupt_0] == 1){
-                printf("[core_software_interrupt_controller] unpending irq 1\n");
-                fflush(stdout);
-            }
-            #endif
-
-
-        pic32mz_nvic.InterruptPending[PIC32MZ_IRQ_Core_Software_Interrupt_0] = 0;
+        // if (arg_nvic->InterruptEnabled[PIC32MZ_IRQ_Core_Software_Interrupt_0] == 0){
+        //     arg_nvic->InterruptEnabled[PIC32MZ_IRQ_Core_Software_Interrupt_0] = 1;
+        //     // pic32mz_nvic.InterruptPriority[PIC32MZ_IRQ_Core_Software_Interrupt_0] = PIC32MZ_NVIC_HIGHEST_PRIO;
+        //     // pic32mz_nvic.InterruptSubPriority[PIC32MZ_IRQ_Core_Software_Interrupt_0] = PIC32MZ_NVIC_HIGHEST_SUB_PRIO;
+        //     pic32mz_update_enabled_irq_list(PIC32MZ_IRQ_Core_Software_Interrupt_0);
+        // }
+        arg_nvic->InterruptPending[PIC32MZ_IRQ_Core_Software_Interrupt_0] = 1;
+        CP0_cause.IP0 = 0;
+        uc_reg_write(arg_nvic->uc, UC_MIPS_REG_CP0_CAUSE, &CP0_cause);
+        pending = true;
+        
     }
+    // else{
+    //         // In general cases, ISR code will clear pending bit via a MMIO write to the interrupt controller
+    //         // then this handling is redundant
+    //         #ifdef DEBUG_NVIC
+    //         if (arg_nvic->InterruptPending[PIC32MZ_IRQ_Core_Software_Interrupt_0] == 1){
+    //             printf("[core_software_interrupt_controller] unpending irq 1\n");
+    //             fflush(stdout);
+    //         }
+    //         #endif
+
+
+    //     arg_nvic->InterruptPending[PIC32MZ_IRQ_Core_Software_Interrupt_0] = 0;
+    //     if (arg_nvic->pending_irq == PIC32MZ_IRQ_Core_Software_Interrupt_0) arg_nvic->pending_irq = PIC32MZ_NVIC_NONE_ACTIVE;
+    // }
 
     // core software interrupt 1
     if (CP0_cause.IP1){
-        if (pic32mz_nvic.InterruptEnabled[PIC32MZ_IRQ_Core_Software_Interrupt_1] == 0){
-            pic32mz_nvic.InterruptEnabled[PIC32MZ_IRQ_Core_Software_Interrupt_1] = 1;
-            pic32mz_nvic.InterruptPriority[PIC32MZ_IRQ_Core_Software_Interrupt_1] = PIC32MZ_NVIC_HIGHEST_PRIO;
-            pic32mz_nvic.InterruptSubPriority[PIC32MZ_IRQ_Core_Software_Interrupt_1] = PIC32MZ_NVIC_HIGHEST_SUB_PRIO-1;
-            pic32mz_update_enabled_irq_list(PIC32MZ_IRQ_Core_Software_Interrupt_1);
-        }
-        pic32mz_nvic.InterruptPending[PIC32MZ_IRQ_Core_Software_Interrupt_1] = 1;
-    }else{
-            #ifdef DEBUG_NVIC
-            if (pic32mz_nvic.InterruptPending[PIC32MZ_IRQ_Core_Software_Interrupt_1] == 1){
-                printf("[core_software_interrupt_controller] unpending irq 2\n");
-                fflush(stdout);
-            }
-            #endif
-
-        pic32mz_nvic.InterruptPending[PIC32MZ_IRQ_Core_Software_Interrupt_1] = 0;
+        // if (arg_nvic->InterruptEnabled[PIC32MZ_IRQ_Core_Software_Interrupt_1] == 0){
+        //     arg_nvic->InterruptEnabled[PIC32MZ_IRQ_Core_Software_Interrupt_1] = 1;
+        //     // pic32mz_nvic.InterruptPriority[PIC32MZ_IRQ_Core_Software_Interrupt_1] = PIC32MZ_NVIC_HIGHEST_PRIO;
+        //     // pic32mz_nvic.InterruptSubPriority[PIC32MZ_IRQ_Core_Software_Interrupt_1] = PIC32MZ_NVIC_HIGHEST_SUB_PRIO-1;
+        //     pic32mz_update_enabled_irq_list(PIC32MZ_IRQ_Core_Software_Interrupt_1);
+        // }
+        arg_nvic->InterruptPending[PIC32MZ_IRQ_Core_Software_Interrupt_1] = 1;
+        CP0_cause.IP1 = 0;
+        uc_reg_write(arg_nvic->uc, UC_MIPS_REG_CP0_CAUSE, &CP0_cause);
+        pending = true;
     }
+    
+    // else{
+    //         #ifdef DEBUG_NVIC
+    //         if (arg_nvic->InterruptPending[PIC32MZ_IRQ_Core_Software_Interrupt_1] == 1){
+    //             printf("[core_software_interrupt_controller] unpending irq 2\n");
+    //             fflush(stdout);
+    //         }
+    //         #endif
+
+    //     arg_nvic->InterruptPending[PIC32MZ_IRQ_Core_Software_Interrupt_1] = 0;
+    //     if (arg_nvic->pending_irq == PIC32MZ_IRQ_Core_Software_Interrupt_1) arg_nvic->pending_irq = PIC32MZ_NVIC_NONE_ACTIVE;
+    // }
 
     // core timer interrupt 0
     if (CP0_cause.TI){
-        if (pic32mz_nvic.InterruptEnabled[PIC32MZ_IRQ_Core_Timer] == 0){
-            pic32mz_nvic.InterruptEnabled[PIC32MZ_IRQ_Core_Timer] = 1;
-            pic32mz_nvic.InterruptPriority[PIC32MZ_IRQ_Core_Timer] = PIC32MZ_NVIC_HIGHEST_PRIO;
-            pic32mz_nvic.InterruptSubPriority[PIC32MZ_IRQ_Core_Timer] = PIC32MZ_NVIC_HIGHEST_SUB_PRIO-1;
-            pic32mz_update_enabled_irq_list(PIC32MZ_IRQ_Core_Timer);
-        }
-        pic32mz_nvic.InterruptPending[PIC32MZ_IRQ_Core_Timer] = 1;
-    }else{
-            #ifdef DEBUG_NVIC
-            if (pic32mz_nvic.InterruptPending[PIC32MZ_IRQ_Core_Timer] == 1){
-                printf("[core timer interrupt] unpending irq 0\n");
-                fflush(stdout);
-            }
-            #endif
-
-        pic32mz_nvic.InterruptPending[PIC32MZ_IRQ_Core_Timer] = 0;
+        // if (arg_nvic->InterruptEnabled[PIC32MZ_IRQ_Core_Timer] == 0){
+        //     arg_nvic->InterruptEnabled[PIC32MZ_IRQ_Core_Timer] = 1;
+        //     // pic32mz_nvic.InterruptPriority[PIC32MZ_IRQ_Core_Timer] = PIC32MZ_NVIC_HIGHEST_PRIO;
+        //     // pic32mz_nvic.InterruptSubPriority[PIC32MZ_IRQ_Core_Timer] = PIC32MZ_NVIC_HIGHEST_SUB_PRIO-1;
+        //     pic32mz_update_enabled_irq_list(PIC32MZ_IRQ_Core_Timer);
+        // }
+        arg_nvic->InterruptPending[PIC32MZ_IRQ_Core_Timer] = 1;
+        CP0_cause.TI = 0;
+        uc_reg_write(arg_nvic->uc, UC_MIPS_REG_CP0_CAUSE, &CP0_cause);
+        pending = true;
     }
-    
+    // else{
+    //         #ifdef DEBUG_NVIC
+    //         if (arg_nvic->InterruptPending[PIC32MZ_IRQ_Core_Timer] == 1){
+    //             printf("[core timer interrupt] unpending irq 0\n");
+    //             fflush(stdout);
+    //         }
+    //         #endif
+
+    //     arg_nvic->InterruptPending[PIC32MZ_IRQ_Core_Timer] = 0;
+    //     if (arg_nvic->pending_irq == PIC32MZ_IRQ_Core_Timer) pic32mz_nvic.pending_irq = PIC32MZ_NVIC_NONE_ACTIVE;
+    // }
+    if (pending)  pic32mz_recalc_prios();
 
 }
 
 // Hack: we update status here by a given IRQ 
 // because MMIO accesses don't indicate an IRQ
 void pic32mz_pend_interrupt(uc_engine *uc, int exception_no) {
+
+    uint32_t value;
+
+    // filtering core software interrupts from external signal
+    // we dont allow manipulation on these interrupt sources.
+    if (exception_no == PIC32MZ_IRQ_Core_Software_Interrupt_0 || exception_no == PIC32MZ_IRQ_Core_Software_Interrupt_1){
+        #ifdef DEBUG_NVIC
+        printf("[pend_interrupt] irq(%d) is not allowed by manual trigger\n", exception_no);
+        fflush(stdout);
+        #endif
+        return;
+    }
+        
+
     #ifdef DEBUG_NVIC
     printf("[pend_interrupt] irq=%d, active_irq=%d\n", exception_no, pic32mz_nvic.active_irq);
     fflush(stdout);
     #endif
+
     if(pic32mz_nvic.InterruptPending[exception_no] == 0) {
         pic32mz_nvic.InterruptPending[exception_no] = 1;
-
-        // set IFSx bit
-        // int index = exception_no / 32;
-        // uint32_t value;
-        // uc_reg_read(uc, PIC32MZ_EBASE + PIC32MZ_IFS0 + index * 0x10, &value);
-        // value = PIC32MZ_Set_Bit(value, exception_no % 32);
-        // uc_reg_write(uc, PIC32MZ_EBASE + PIC32MZ_IFS0 + index * 0x10, &value);
-
-        // read enabled bit in IEC registers
-        // uc_reg_read(uc, PIC32MZ_EBASE + PIC32MZ_IEC0 + index * 0x10, &value);
-        // pic32mz_nvic.InterruptEnabled[exception_no] = PIC32MZ_Get_Bit(value, exception_no % 32);
-
-
 
         pic32mz_recalc_prios();
     }else if (pic32mz_nvic.InterruptPending[exception_no] == 1 && \
     pic32mz_nvic.InterruptEnabled[exception_no] == 1){
         pic32mz_recalc_prios();
     }
+
+    uc_reg_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS0 + ((exception_no / 32) * 0x10), &value);
+    value |= PIC32MZ_Set_Bit(1, exception_no % 32);
+    uc_reg_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS0 + ((exception_no / 32) * 0x10), &value);
+
 }
 
 
@@ -284,7 +314,8 @@ static bool pic32mz_recalc_prios() {
     int highest_pending_prio = PIC32MZ_NVIC_LOWEST_PRIO;
     int highest_pending_sub_prio = PIC32MZ_NVIC_LOWEST_PRIO;
     int highest_pending_irq = PIC32MZ_NVIC_NONE_ACTIVE;
-    
+    PIC32MZ_CP0_status CP0_status;
+    uc_reg_read(pic32mz_nvic.uc, UC_MIPS_REG_CP0_STATUS, &CP0_status);
 
     // iterate all enabled and pending interrupts
     // sort the highest irq out
@@ -299,6 +330,14 @@ static bool pic32mz_recalc_prios() {
         #endif
 
         if(pic32mz_nvic.InterruptPending[irq] && pic32mz_nvic.active_irq != irq) {
+            if (curr_prio <= CP0_status.IPL ) {
+                #ifdef DEBUG_NVIC
+                printf("[recalc_prios] curr_prio (%d) <= cp0_status.IPL(%d) unpending %d\n", curr_prio, CP0_status.IPL, irq);
+                #endif
+                pic32mz_nvic.InterruptPending[irq] = 0;
+                continue;
+            }  
+            
             if (curr_prio > highest_pending_prio) {
                 #ifdef DEBUG_NVIC
                 printf("[recalc_prios] curr_prio > highest_pending_prio for irq %d: curr: %d > new highest: %d\n", irq, curr_prio, highest_pending_prio);
@@ -383,14 +422,13 @@ void pic32mz_update_enabled_interrupts(uc_engine *uc, uint32_t IEC_index, uint32
 
             irq = IEC_index * 32 + cur_bit;
 
-            if(pic32mz_is_disabled_by_config(irq)) break;
+            if(!pic32mz_is_disabled_by_config(irq)) {
             
-            pic32mz_nvic.InterruptEnabled[irq] = 1;
+                pic32mz_nvic.InterruptEnabled[irq] = 1;
 
-            pic32mz_update_enabled_irq_list(irq);
+                pic32mz_update_enabled_irq_list(irq);
+            }
 
-
-            break;
         }
         cur_bit ++;
     }
@@ -436,10 +474,23 @@ void pic32mz_update_disabled_interrupts(uc_engine *uc, uint32_t IEC_index, uint3
             if(pic32mz_is_disabled_by_config(irq)) break;
             
             pic32mz_nvic.InterruptEnabled[irq] = 0;
-
             pic32mz_update_disabled_irq_list(irq);
 
+            #ifdef DEBUG_NVIC
+            printf("[NVIC] disabling irq %d\n", irq);
+            fflush(stdout);
+            #endif
 
+            // Hack: consider as an exception exit
+            // if (pic32mz_nvic.active_irq == irq) {
+            //     pic32mz_nvic.active_irq = PIC32MZ_NVIC_NONE_ACTIVE;
+            //         #ifdef DEBUG_NVIC
+            //         printf("[NVIC] disabling irq %d\n", irq);
+            //         fflush(stdout);
+            //         #endif
+            //     // check if any pending interrupts
+            //     pic32mz_nesting_detector = pic32mz_recalc_prios();
+            // }
             break;
         }
         cur_bit ++;
@@ -453,6 +504,7 @@ void pic32mz_update_disabled_interrupts(uc_engine *uc, uint32_t IEC_index, uint3
 void pic32mz_update_enabled_interrupts_priority(uc_engine *uc, uint32_t offset, uint32_t priority){
         uint32_t index = ((offset & ~(0xf)) - PIC32MZ_IPC0 )/ 0x10;
         int irq = index * 4;
+        
         // update priority
         // priority, sub-priority
 
@@ -533,17 +585,17 @@ void pic32mz_clear_interrupts(uint32_t IFSxCLR_index, uint32_t value){
         if (PIC32MZ_Get_Bit(value, cur_bit) == 1){
             irq = IFSxCLR_index * 32 + cur_bit;
             pic32mz_nvic.InterruptPending[irq] = 0;
-
+            #ifdef DEBUG_NVIC
+            printf("[NVIC] unpending interrupt flag for irq %d\n", irq);
+            fflush(stdout);
+            #endif
             // Hack: consider as an exception exit
-            if (pic32mz_nvic.active_irq == irq) {
-                pic32mz_nvic.active_irq = PIC32MZ_NVIC_NONE_ACTIVE;
-                    #ifdef DEBUG_NVIC
-                    printf("[NVIC] setting irq %d as non-active \n", irq);
-                    fflush(stdout);
-                    #endif
-                // check if any pending interrupts
-                pic32mz_nesting_detector = pic32mz_recalc_prios();
-            }
+            // if (pic32mz_nvic.active_irq == irq) {
+            //     pic32mz_nvic.active_irq = PIC32MZ_NVIC_NONE_ACTIVE;
+               
+            //     // check if any pending interrupts
+            //     pic32mz_nesting_detector = pic32mz_recalc_prios();
+            // }
             break;
         }
 
@@ -563,6 +615,7 @@ void pic32mz_hook_sysctl_mmio_write(uc_engine *uc, uc_mem_type type,
 
     // identify which interrupt control register to be written
     uint32_t offset = addr & 0xFFF;
+    uint32_t updated_reg = 0;
 
     switch(offset) {     
         // interrupt flags
@@ -584,6 +637,45 @@ void pic32mz_hook_sysctl_mmio_write(uc_engine *uc, uc_mem_type type,
         case PIC32MZ_IFS5:
             pic32mz_update_pending_interrupts(5, value);
             break;
+
+        // SFRs - pending an interrupt
+        case PIC32MZ_IFS0 + PIC32MZ_OFFSET_IECxSET:
+            pic32mz_update_pending_interrupts(0, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS0, &updated_reg, sizeof(updated_reg));
+            updated_reg |= (uint32_t)value;
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS0, &updated_reg, sizeof(updated_reg));
+            break;
+        case PIC32MZ_IFS1 + PIC32MZ_OFFSET_IECxSET:
+            pic32mz_update_pending_interrupts(1, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS1, &updated_reg, sizeof(updated_reg));
+            updated_reg |= (uint32_t)value;
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS1, &updated_reg, sizeof(updated_reg));
+            break;
+        case PIC32MZ_IFS2 + PIC32MZ_OFFSET_IECxSET:
+            pic32mz_update_pending_interrupts(2, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS2, &updated_reg, sizeof(updated_reg));
+            updated_reg |= (uint32_t)value;
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS2, &updated_reg, sizeof(updated_reg));
+            break;
+        case PIC32MZ_IFS3 + PIC32MZ_OFFSET_IECxSET:
+            pic32mz_update_pending_interrupts(3, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS3, &updated_reg, sizeof(updated_reg));
+            updated_reg |= (uint32_t)value;
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS3, &updated_reg, sizeof(updated_reg));
+            break;
+        case PIC32MZ_IFS4 + PIC32MZ_OFFSET_IECxSET:
+            pic32mz_update_pending_interrupts(4, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS4, &updated_reg, sizeof(updated_reg));
+            updated_reg |= (uint32_t)value;
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS4, &updated_reg, sizeof(updated_reg));
+            break;
+        case PIC32MZ_IFS5 + PIC32MZ_OFFSET_IECxSET:
+            pic32mz_update_pending_interrupts(5, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS5, &updated_reg, sizeof(updated_reg));
+            updated_reg |= (uint32_t)value;
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS5, &updated_reg, sizeof(updated_reg));
+            break;
+
 
         // interrupt mask
         // Hack: once a write to the below registers corresponding to 
@@ -611,62 +703,116 @@ void pic32mz_hook_sysctl_mmio_write(uc_engine *uc, uc_mem_type type,
         // same as above, but some system code utilizes this register
         case PIC32MZ_IEC0 + PIC32MZ_OFFSET_IECxSET:
             pic32mz_update_enabled_interrupts(uc, 0, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC0, &updated_reg, sizeof(updated_reg));
+            updated_reg |= (uint32_t)value;
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC0, &updated_reg, sizeof(updated_reg));
             break;
         case PIC32MZ_IEC1 + PIC32MZ_OFFSET_IECxSET:
             pic32mz_update_enabled_interrupts(uc, 1, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC1, &updated_reg, sizeof(updated_reg));
+            updated_reg |= (uint32_t)value;
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC1, &updated_reg, sizeof(updated_reg));
             break;
         case PIC32MZ_IEC2 + PIC32MZ_OFFSET_IECxSET:
             pic32mz_update_enabled_interrupts(uc, 2, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC2, &updated_reg, sizeof(updated_reg));
+            updated_reg |= (uint32_t)value;
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC2, &updated_reg, sizeof(updated_reg));
             break;
         case PIC32MZ_IEC3 + PIC32MZ_OFFSET_IECxSET:
             pic32mz_update_enabled_interrupts(uc, 3, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC3, &updated_reg, sizeof(updated_reg));
+            updated_reg |= (uint32_t)value;
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC3, &updated_reg, sizeof(updated_reg));
             break;
         case PIC32MZ_IEC4 + PIC32MZ_OFFSET_IECxSET:
             pic32mz_update_enabled_interrupts(uc, 4, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC4, &updated_reg, sizeof(updated_reg));
+            updated_reg |= (uint32_t)value;
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC4, &updated_reg, sizeof(updated_reg));
             break;
         case PIC32MZ_IEC5 + PIC32MZ_OFFSET_IECxSET:
             pic32mz_update_enabled_interrupts(uc, 5, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC5, &updated_reg, sizeof(updated_reg));
+            updated_reg |= (uint32_t)value;
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC5, &updated_reg, sizeof(updated_reg));
             break;        
 
         // disable an interrupt
         case PIC32MZ_IEC0 + PIC32MZ_OFFSET_IECxCLR:
             pic32mz_update_disabled_interrupts(uc, 0, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC0, &updated_reg, sizeof(updated_reg));
+            updated_reg &= (~(uint32_t)value);
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC0, &updated_reg, sizeof(updated_reg));
             break;
         case PIC32MZ_IEC1 + PIC32MZ_OFFSET_IECxCLR:
             pic32mz_update_disabled_interrupts(uc, 1, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC1, &updated_reg, sizeof(updated_reg));
+            updated_reg &= (~(uint32_t)value);
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC1, &updated_reg, sizeof(updated_reg));
             break;
         case PIC32MZ_IEC2 + PIC32MZ_OFFSET_IECxCLR:
             pic32mz_update_disabled_interrupts(uc, 2, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC2, &updated_reg, sizeof(updated_reg));
+            updated_reg &= (~(uint32_t)value);
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC2, &updated_reg, sizeof(updated_reg));
             break;
         case PIC32MZ_IEC3 + PIC32MZ_OFFSET_IECxCLR:
             pic32mz_update_disabled_interrupts(uc, 3, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC3, &updated_reg, sizeof(updated_reg));
+            updated_reg &= (~(uint32_t)value);
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC3, &updated_reg, sizeof(updated_reg));
             break;
         case PIC32MZ_IEC4 + PIC32MZ_OFFSET_IECxCLR:
             pic32mz_update_disabled_interrupts(uc, 4, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC4, &updated_reg, sizeof(updated_reg));
+            updated_reg &= (~(uint32_t)value);
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC4, &updated_reg, sizeof(updated_reg));
             break;
         case PIC32MZ_IEC5 + PIC32MZ_OFFSET_IECxCLR:
             pic32mz_update_disabled_interrupts(uc, 5, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC5, &updated_reg, sizeof(updated_reg));
+            updated_reg &= (~(uint32_t)value);
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IEC5, &updated_reg, sizeof(updated_reg));
             break;            
 
         // interrupt CLR register at the offset of 4 bytes in the associated register, e.g., IFS0CLR
         // crucial to terminate an ISR by setting as non-active
         case PIC32MZ_IFS0CLR:
             pic32mz_clear_interrupts(0, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS0, &updated_reg, sizeof(updated_reg));
+            updated_reg &= (~(uint32_t)value);
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS0, &updated_reg, sizeof(updated_reg));
             break;
         case PIC32MZ_IFS1CLR:
             pic32mz_clear_interrupts(1, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS1, &updated_reg, sizeof(updated_reg));
+            updated_reg &= (~(uint32_t)value);
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS1, &updated_reg, sizeof(updated_reg));
             break;
         case PIC32MZ_IFS2CLR:
             pic32mz_clear_interrupts(2, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS2, &updated_reg, sizeof(updated_reg));
+            updated_reg &= (~(uint32_t)value);
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS2, &updated_reg, sizeof(updated_reg));
             break;
         case PIC32MZ_IFS3CLR:
             pic32mz_clear_interrupts(3, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS3, &updated_reg, sizeof(updated_reg));
+            updated_reg &= (~(uint32_t)value);
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS3, &updated_reg, sizeof(updated_reg));
             break;
         case PIC32MZ_IFS4CLR:
             pic32mz_clear_interrupts(4, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS4, &updated_reg, sizeof(updated_reg));
+            updated_reg &= (~(uint32_t)value);
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS4, &updated_reg, sizeof(updated_reg));
             break;
         case PIC32MZ_IFS5CLR:
             pic32mz_clear_interrupts(5, value);
+            uc_mem_read(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS5, &updated_reg, sizeof(updated_reg));
+            updated_reg &= (~(uint32_t)value);
+            uc_mem_write(uc, PIC32MZ_INTR_CTL_REG_MMIO_BASE + PIC32MZ_IFS5, &updated_reg, sizeof(updated_reg));
             break;       
 
 
@@ -695,6 +841,38 @@ bool pic32mz_is_disabled_by_config(int exception_no) {
 }
 
 
+// callback for eret instruction.
+static void hook_eret(uc_engine *uc, uint32_t EPC, struct Pic32mzNVIC* arg_nvic)
+{
+    #ifdef DEBUG_NVIC
+        uint32_t pc;
+        uc_reg_read(uc, UC_MIPS_REG_PC, &pc);
+        printf("[hook_eret] eret at 0x%x is pointing to 0x%x\n", pc, EPC); fflush(stdout);
+    #endif
+    if (arg_nvic->active_irq != PIC32MZ_NVIC_NONE_ACTIVE){
+        
+        #ifdef DEBUG_NVIC
+            printf("[hook_eret] proactively unpending irq(%d) while facing ERET instruction \n", arg_nvic->active_irq); fflush(stdout);
+        #endif
+        
+        arg_nvic->InterruptPending[arg_nvic->active_irq] = 0;
+        arg_nvic->active_irq = PIC32MZ_NVIC_NONE_ACTIVE;
+        pic32mz_recalc_prios();
+    }
+    
+    arg_nvic->is_interrupt_disable = false;
+}
+
+
+static void hook_ei(uc_engine *uc, uint32_t data, struct Pic32mzNVIC* arg_nvic){
+    arg_nvic->is_interrupt_disable = false;
+}
+
+static void hook_di(uc_engine *uc, uint32_t data, struct Pic32mzNVIC* arg_nvic){
+    arg_nvic->is_interrupt_disable = true;
+}
+
+
 uc_err pic32mz_init_nvic(uc_engine *uc, uint32_t vtor, uint32_t num_irq, uint32_t p_interrupt_limit, uint32_t num_disabled_interrupts, uint32_t *disabled_interrupts) {
     #ifdef DEBUG_NVIC
     printf("[NVIC] init_nvic called with vtor: %x, num_irq: %d\n", vtor, num_irq); fflush(stdout);
@@ -709,7 +887,7 @@ uc_err pic32mz_init_nvic(uc_engine *uc, uint32_t vtor, uint32_t num_irq, uint32_
     pic32mz_nvic.pending_irq = PIC32MZ_NVIC_NONE_ACTIVE;
     pic32mz_nvic.pending_sub_prio = PIC32MZ_NVIC_LOWEST_PRIO;
     pic32mz_nvic.pending_prio = PIC32MZ_NVIC_LOWEST_PRIO;
-
+    pic32mz_nvic.uc = uc;
     pic32mz_nvic.interrupt_count = 0;
     pic32mz_interrupt_limit = p_interrupt_limit;
     pic32mz_num_config_disabled_interrupts = num_disabled_interrupts;
@@ -720,12 +898,13 @@ uc_err pic32mz_init_nvic(uc_engine *uc, uint32_t vtor, uint32_t num_irq, uint32_
         // save disabled IRQs
         pic32mz_config_disabled_interrupts[i] = disabled_interrupts[i];
     
-
     uc_hook_add(uc, &pic32mz_nvic_block_hook_handle, UC_HOOK_BLOCK_UNCONDITIONAL, pic32mz_nvic_block_hook, &pic32mz_nvic, 1, 0);
     
-    // pic32mz_nvic MMIO range write handler to update status
     uc_hook_add(uc, &pic32mz_hook_mmio_write_handle, UC_HOOK_MEM_WRITE, pic32mz_hook_sysctl_mmio_write, NULL, PIC32MZ_INTR_CTL_REG_MMIO_BASE, PIC32MZ_INTR_CTL_REG_MMIO_END);
-    // uc_hook_add(uc, &pic32mz_hook_mmio_read_handle, UC_HOOK_MEM_READ, pic32mz_hook_sysctl_mmio_read, NULL, PIC32MZ_INTR_CTL_REG_MMIO_BASE, PIC32MZ_INTR_CTL_REG_MMIO_END);
+
+    uc_hook_add(uc, &pic32mz_hook_eret, UC_HOOK_INSN, hook_eret, &pic32mz_nvic, 1, 0, UC_MIPS_INS_ERET);
+    uc_hook_add(uc, &pic32mz_hook_ei, UC_HOOK_INSN, hook_ei, &pic32mz_nvic, 1, 0, UC_MIPS_INS_EI);
+    uc_hook_add(uc, &pic32mz_hook_di, UC_HOOK_INSN, hook_di, &pic32mz_nvic, 1, 0, UC_MIPS_INS_DI);
 
     subscribe_state_snapshotting(uc, pic32mz_nvic_take_snapshot, pic32mz_nvic_restore_snapshot, pic32mz_nvic_discard_snapshot);
 

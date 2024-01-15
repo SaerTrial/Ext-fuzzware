@@ -44,20 +44,23 @@ memory_map:
 handlers:
   __wrap_sprintf: null
   CORETIMER_DelayMs: null
-  UART2_ReadIsBusy: null
-  UART2_Read:
-    handler: fuzzware_harness.user_hooks.fuzz.return_fuzz_byte
-    do_return: True
+  #UART2_ReadIsBusy: null
+  #UART2_Read:
+  #  handler: fuzzware_harness.user_hooks.fuzz.return_fuzz_byte
+  #  do_return: True
     
     
 interrupt_triggers:
-  timer3_runner:
+  random_irq:
+    every_nth_tick: 300
+    fuzz_mode: round_robin 
+  #timer3_runner:
     # time-based
-    addr: 0x9d00176c
-    irq: 12  
-  GPIO_trigger:
-    addr: BME280_GetTempReading
-    irq: 32
+    #addr: 0x9d00176c
+    #irq: 12  
+  #GPIO_trigger:
+  #  addr: BME280_GetTempReading
+  #  irq: 32
 
 use_nvic: true  
 nvic:
@@ -65,7 +68,8 @@ nvic:
   vtor: 0
   # configure the maximum number of vectors in the nvic, defaults to 256
   num_vecs: 256
-  processor: pic32mx    
+  processor: pic32mx   
+  disabled_irqs: [40] 
  
 arch: MIPS32
 endianness: LE

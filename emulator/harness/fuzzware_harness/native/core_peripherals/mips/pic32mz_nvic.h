@@ -185,7 +185,8 @@ struct Pic32mzNVIC {
     uint32_t EPC;
     // Vector table base address
     uint32_t vtor;
-
+    uc_engine *uc;
+    bool is_interrupt_disable;
     uint32_t interrupt_count;
     uint8_t NonPersistantIRQs[PIC32MZ_NVIC_NUM_SUPPORTED_INTERRUPTS];
     uint8_t InterruptEnabled[PIC32MZ_NVIC_NUM_SUPPORTED_INTERRUPTS];

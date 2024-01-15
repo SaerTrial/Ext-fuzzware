@@ -1,0 +1,71 @@
+include:
+#- ./../../configs/hw/boards/pic32mz_memory.yml
+- ./syms.yml
+
+memory_map:
+  sram:
+    base_addr: 0xA0000000
+    permissions: rw-
+    size: 0x20000
+    # file_offset: 0x010000
+  text:
+    base_addr: 0x9d000000
+    file: ./basic_exercises.elf
+    permissions: r-x
+    size: 0x5000
+    file_offset: 0x010000
+  isr:
+    base_addr: 9fc01000
+    file: ./basic_exercises.elf
+    permissions: r-x
+    size: 0x1000
+    file_offset: 0x021000
+  boot:
+    base_addr: 0xbfc00000
+    file: ./basic_exercises.elf
+    permissions: r-x
+    size: 0x1000
+    file_offset: 0x040000
+    is_entry: True
+  mmio_1:
+    base_addr: 0xbf800000
+    size: 0x10000
+    permissions: rw-
+  mmio_2:
+    base_addr: 0xbf882000
+    size: 0x5000
+    permissions: rw-
+  interrupt_control_registers:
+    base_addr: 0xbf881000
+    size: 0x1000
+    permissions: rw-
+    
+    
+handlers:
+  __wrap_sprintf: null
+  CORETIMER_DelayMs: null
+  #UART2_Read:
+  #  handler: fuzzware_harness.user_hooks.fuzz.return_fuzz_byte
+  #  do_return: True
+    
+    
+interrupt_triggers:
+  random_irq:
+    every_nth_tick: 300
+    fuzz_mode: round_robin 
+
+use_nvic: true  
+nvic:
+  # interrupt vector base address (alternative name: 'addr')
+  vtor: 0
+  # configure the maximum number of vectors in the nvic, defaults to 256
+  num_vecs: 256
+  processor: pic32mx   
+  disabled_irqs: [40] 
+ 
+arch: MIPS32
+endianness: LE
+initial_sp: 0xA001FFF0
+entry_point: 0xbfc00000
+
+use_systick: false

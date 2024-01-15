@@ -28,6 +28,17 @@ typedef struct _PIC32MX_CP0_cause
   uint32_t TI:1;
 } PIC32MX_CP0_cause;
 
+typedef struct _PIC32MX_CP0_status
+{
+  uint32_t IE:1;
+  uint32_t EXL:1;
+  uint32_t ERL:1;
+  uint32_t :1;
+  uint32_t UM:1;
+  uint32_t :5;
+  uint32_t IPL:3;
+} PIC32MX_CP0_status;
+
 
 // TABLE 6-6: PERIPHERAL ADDRESS TABLE
 // https://ww1.microchip.com/downloads/en/DeviceDoc/PIC32MX_Datasheet_v2_61143B.pdf
@@ -152,9 +163,11 @@ typedef struct _PIC32MX_CP0_cause
 // The number of supported interrupts
 // https://ww1.microchip.com/downloads/en/DeviceDoc/PIC32MX_Datasheet_v2_61143B.pdf
 // TABLE 8-1
-#define PIC32MX_NVIC_NUM_SUPPORTED_INTERRUPTS 54
-#define PIC32MX_NVIC_NUM_SUPPORTED_VECTOR 45
-#define PIC32MX_MIRROR 0x3
+#define PIC32MX_NVIC_NUM_SUPPORTED_INTERRUPTS 76   // pic32_7xx == 54 pic32_5xx == 76
+#define PIC32MX_NVIC_NUM_SUPPORTED_VECTOR 46 
+#define PIC32MX_MIRROR 10
+
+#define PIC32MX_UNREACHABLE_IRQ 255
 uint32_t PIC32MX_IRQ2VectorNum[PIC32MX_NVIC_NUM_SUPPORTED_INTERRUPTS];
 uint32_t PIC32MX_VectorNum2IRQ[PIC32MX_NVIC_NUM_SUPPORTED_VECTOR][PIC32MX_MIRROR];
 
@@ -199,6 +212,15 @@ uint32_t PIC32MX_VectorNum2IRQ[PIC32MX_NVIC_NUM_SUPPORTED_VECTOR][PIC32MX_MIRROR
 
 // marco for setting a bit at a certain point
 #define PIC32MX_Set_Bit(data, n) (data | ( 1 << n ))
+
+// https://www.sparkfun.com/datasheets/Components/SMD/PIC32MX.pdf
+// IRQ and Vector table PIC32MX 5XX/6XX/7XX
+
+//https://ww1.microchip.com/downloads/en/devicedoc/60001185g.pdf
+// IRQ and Vector table PIC32MX 3XX/4XX
+
+#define FAMILY_PIC32MX5XX_6XX_7XX 0x2
+#define FAMILY_PIC32MX3XX_4XX 0x3
 
 /* Vector Numbers */
 #define PIC32MX_CORE_TIMER_VECTOR                       0
@@ -283,7 +305,8 @@ struct Pic32mxNVIC {
     uint32_t EPC;
     // Vector table base address
     uint32_t vtor;
-
+    uc_engine *uc;
+    bool is_interrupt_disable;
     uint32_t interrupt_count;
     // uint8_t NonPersistantIRQs[PIC32MX_NVIC_NUM_SUPPORTED_INTERRUPTS];
     uint8_t InterruptEnabled[PIC32MX_NVIC_NUM_SUPPORTED_INTERRUPTS];
@@ -302,7 +325,7 @@ uint8_t pic32mx_nth_enabled_irq_num(uint8_t n);
 
 void pic32mx_nvic_set_pending(uc_engine *uc, uint32_t irq, int delay_activation);
 
-uc_err pic32mx_init_nvic(uc_engine *uc, uint32_t vtor, uint32_t num_irq, uint32_t p_interrupt_limit, uint32_t num_disabled_interrupts, uint32_t *disabled_interrupts);
+uc_err pic32mx_init_nvic(uc_engine *uc, uint32_t vtor, uint32_t num_irq, uint32_t p_interrupt_limit, uint32_t num_disabled_interrupts, uint32_t *disabled_interrupts, uint32_t family);
 
 
 
