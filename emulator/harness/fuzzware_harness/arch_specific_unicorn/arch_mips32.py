@@ -337,7 +337,14 @@ class UserHooksMIPS32(UserHooks):
 
         output += msg[prev_ind:]
         sys.stdout.write(output.decode('latin1'))
-        sys.stdout.flush()        
+        sys.stdout.flush() 
+
+    def UART_Write(self):
+        ptr = self._uc.regs.a0
+        size = self._uc.regs.a1
+        msg = self._uc.mem_read(ptr, size)
+        print(msg.decode("utf-8"))
+
 
     def readline(self):
         ptr = self._uc.regs.a0

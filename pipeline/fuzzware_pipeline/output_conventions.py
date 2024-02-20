@@ -27,7 +27,7 @@ REGEX_LR = r"lr: (0x[0-9a-fA-F]*)"
 def pc_lr_from_emu_output(emu_output):
     m = re.findall(REGEX_PC, emu_output)
 
-    if len(m) == 1:
+    if len(m) >= 1:
         pc = int(m[0], 16)
         m = re.findall(REGEX_LR, emu_output)
         if len(m) == 1:

@@ -5,7 +5,7 @@
 #define PIC32MX_NVIC_HIGHEST_PRIO 7
 #define PIC32MX_NVIC_HIGHEST_SUB_PRIO 3
 #define PIC32MX_NVIC_LOWEST_SUB_PRIO 0
-#define DEBUG_NVIC
+// #define DEBUG_NVIC
 
 // We may not want to allow nested interrupts
 #define DISABLE_NESTED_INTERRUPTS
@@ -145,22 +145,12 @@ static void pic32mx_core_software_interrupt_controller(struct Pic32mxNVIC* arg_n
     // }
 
     // core timer interrupt 0
-    if (CP0_cause.TI){
-        // if (pic32mx_nvic.InterruptEnabled[PIC32MX_IRQ_Core_Timer] == 0){
-        //     #ifdef DEBUG_NVIC
-        //         printf("[core_software_interrupt_controller] pending irq 0\n");
-        //         fflush(stdout);
-        //     #endif            
-        //     pic32mx_nvic.InterruptEnabled[PIC32MX_IRQ_Core_Timer] = 1;
-        //     pic32mx_nvic.InterruptPriority[PIC32MX_IRQ_Core_Timer] = PIC32MX_NVIC_HIGHEST_PRIO;
-        //     pic32mx_nvic.InterruptSubPriority[PIC32MX_IRQ_Core_Timer] = PIC32MX_NVIC_HIGHEST_SUB_PRIO-1;
-        //     pic32mx_update_enabled_irq_list(PIC32MX_IRQ_Core_Timer);
-        // }
-        pic32mx_nvic.InterruptPending[PIC32MX_IRQ_Core_Timer] = 1;
-        CP0_cause.TI = 0;
-        uc_reg_write(arg_nvic->uc, UC_MIPS_REG_CP0_CAUSE, &CP0_cause);
-        pending = true;
-    }
+    // if (CP0_cause.TI){
+    //     pic32mx_nvic.InterruptPending[PIC32MX_IRQ_Core_Timer] = 1;
+    //     CP0_cause.TI = 0;
+    //     uc_reg_write(arg_nvic->uc, UC_MIPS_REG_CP0_CAUSE, &CP0_cause);
+    //     pending = true;
+    // }
     // else{
     //         #ifdef DEBUG_NVIC
     //         if (pic32mx_nvic.InterruptPending[PIC32MX_IRQ_Core_Timer] == 1){

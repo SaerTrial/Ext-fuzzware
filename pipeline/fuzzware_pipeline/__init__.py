@@ -734,6 +734,7 @@ KNOWN_STATNAMES = [
     STATNAME_COV, STATNAME_MMIO_COSTS, STATNAME_MMIO_OVERHEAD_ELIM,
     STATNAME_CRASH_CONTEXTS, STATNAME_CRASH_TIMINGS
 ]
+#TODO: make it arch-independent 
 def do_genstats(args, leftover_args):
     from .util.config import load_config_deep
     from .workers.tracegen import gen_all_missing_traces

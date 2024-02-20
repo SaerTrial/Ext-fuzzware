@@ -48,22 +48,9 @@ handlers:
 
 interrupt_triggers:
   idle_irq:
-    every_nth_tick: 400
+    every_nth_tick: 50
     fuzz_mode: round_robin
-  #random_irq:
-  #  addr: xTaskGetTickCount
-  #  irq: 4
-    #fuzz_mode: round_robin
-  #  fuzz_mode: round_robin
-  #RTOS_timer:
-    # time-based
-    #every_nth_tick: 50
-    #addr: xTaskGetTickCount
-    # fixed irq number
-    #irq: 4
-  #RTOS_timer2:
-  #  addr: xTaskResumeAll
-  #  irq: 4
+
 use_nvic: true  
 nvic:
   # interrupt vector base address (alternative name: 'addr')

@@ -51,7 +51,7 @@ handlers:
     
 interrupt_triggers:
   random_irq:
-    every_nth_tick: 300
+    every_nth_tick: 50
     fuzz_mode: round_robin 
 
 use_nvic: true  
@@ -60,8 +60,8 @@ nvic:
   vtor: 0
   # configure the maximum number of vectors in the nvic, defaults to 256
   num_vecs: 256
-  processor: pic32mx   
-  disabled_irqs: [40] 
+  processor: pic32mx5XX6XX7XX   
+  # disabled_irqs: [40] 
  
 arch: MIPS32
 endianness: LE

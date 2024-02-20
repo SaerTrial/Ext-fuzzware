@@ -83,6 +83,9 @@ def printf(uc):
     # sys.stdout.write(output.decode('latin1'))
     # sys.stdout.flush()
 
+def UART_Write(uc):
+    uc.specifics.userhooks.UART_Write()
+
 
 def readline(uc):
     uc.specifics.userhooks.readline()

@@ -159,7 +159,7 @@ def dump_milestone_discovery_timings(out_path, discovery_timings, milestone_bbs)
 
 def load_milestone_discovery_timings(milestone_discovery_path):
     with open(milestone_discovery_path, "r") as f:
-        return [int(l.split("\t")[1], 16) for l in f.readlines() if l.strip()]
+        return [int(l.split("\t")[1], 10) for l in f.readlines() if l.strip()]
 
 def dump_crash_contexts(out_path, crash_input_paths_per_pc_lr):
     with open(out_path, "w") as f:

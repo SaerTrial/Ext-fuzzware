@@ -122,6 +122,12 @@ static void interrupt_trigger_tick_block_hook(uc_engine *uc, uint64_t address, u
         if(trigger->irq) {
             nvic_set_pending(uc, trigger->irq, false);
             ++trigger->curr_pends;
+        }else{
+            // in case that irq 0 is in use, e.g., core timer interrupt for PIC32
+            if (get_num_enabled()) {
+                nvic_set_pending(uc, trigger->irq, false);
+                ++trigger->curr_pends;
+            } 
         }
     }
 

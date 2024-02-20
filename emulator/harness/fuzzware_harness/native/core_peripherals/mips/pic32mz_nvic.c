@@ -6,7 +6,7 @@
 #define PIC32MZ_NVIC_HIGHEST_PRIO 7
 #define PIC32MZ_NVIC_HIGHEST_SUB_PRIO 3
 #define PIC32MZ_NVIC_LOWEST_SUB_PRIO 0
-#define DEBUG_NVIC
+// #define DEBUG_NVIC
 // We may not want to allow nested interrupts
 #define DISABLE_NESTED_INTERRUPTS
 
@@ -859,7 +859,7 @@ static void hook_eret(uc_engine *uc, uint32_t EPC, struct Pic32mzNVIC* arg_nvic)
         arg_nvic->active_irq = PIC32MZ_NVIC_NONE_ACTIVE;
         pic32mz_recalc_prios();
     }
-    
+
     arg_nvic->is_interrupt_disable = false;
 }
 

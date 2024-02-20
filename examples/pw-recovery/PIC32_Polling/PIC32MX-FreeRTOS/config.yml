@@ -41,7 +41,7 @@ memory_map:
 
 interrupt_triggers:
   idle_irq:
-    every_nth_tick: 200
+    every_nth_tick: 50
     fuzz_mode: round_robin
 
 
@@ -58,7 +58,7 @@ nvic:
   vtor: 0
   # configure the maximum number of vectors in the nvic, defaults to 256
   num_vecs: 256
-  processor: pic32mx4XX
+  processor: pic32mx3XX4XX
   # disabled_irqs: [38]
 
 

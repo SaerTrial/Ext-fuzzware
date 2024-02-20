@@ -48,7 +48,7 @@ handlers:
 
 interrupt_triggers:
   idle_irq:
-    every_nth_tick: 200
+    every_nth_tick: 50
     fuzz_mode: round_robin
 
 
