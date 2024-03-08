@@ -1,0 +1,64 @@
+include:
+- ./syms.yml
+
+memory_map:
+  sram:
+    base_addr: 0xA0000000
+    permissions: rw-
+    size: 0x20000
+  text:
+    base_addr: 0x9d000000
+    file: ./DUINOMITE_MEGA.elf
+    permissions: r-x
+    size: 0x5000
+    file_offset: 0x010000
+  isr:
+    base_addr: 9fc01000
+    file: ./DUINOMITE_MEGA.elf
+    permissions: r-x
+    size: 0x1000
+    file_offset: 0x021000
+  boot:
+    base_addr: 0xbfc00000
+    file: ./DUINOMITE_MEGA.elf
+    permissions: r-x
+    size: 0x1000
+    file_offset: 0x040000
+    is_entry: True
+  mmio_1:
+    base_addr: 0xbf800000
+    size: 0x10000
+    permissions: rw-
+  mmio_2:
+    base_addr: 0xbf882000
+    size: 0x5000
+    permissions: rw-
+  interrupt_control_registers:
+    base_addr: 0xbf881000
+    size: 0x1000
+    permissions: rw-
+    
+    
+handlers:
+  __wrap_sprintf: null
+  CORETIMER_DelayMs: null
+
+    
+interrupt_triggers:
+  random_irq:
+    every_nth_tick: 0x200
+    fuzz_mode: round_robin 
+
+use_nvic: true  
+nvic:
+  vtor: 0
+  num_vecs: 256
+  processor: pic32mx5XX6XX7XX   
+
+ 
+arch: MIPS32
+endianness: LE
+initial_sp: 0xA001FFF0
+entry_point: 0xbfc00000
+
+use_systick: false

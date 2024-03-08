@@ -13,7 +13,7 @@ First install:
 
 Then run:
 ```
-./run_docker.sh examples fuzzware pipeline --skip-afl-cpufreq pw-recovery/ARCH_PRO
+./run_docker.sh examples fuzzware pipeline --skip-afl-cpufreq pw-recovery/PIC32/interrupt-mode/DUINOMITE_MEGA
 ```
 
 ## Fuzzware Components
