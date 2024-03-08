@@ -1,13 +1,9 @@
 # Fuzzware
 <p><a href="https://www.usenix.org/system/files/sec22summer_scharnowski.pdf"><img alt="Fuzzware thumbnail" align="right" width="200" src="https://user-images.githubusercontent.com/18148299/150141920-3f054255-2b73-41d2-aa11-27a1e42f5302.png"></a></p>
 
-Fuzzware is a project for automated, self-configuring fuzzing of firmware images.
+This project is an extension from original Fuzzware.
 
-The idea of this project is to configure the memory ranges of an ARM Cortex-M3 / M4 firmware image, and start emulating / fuzzing the target without full device emulation. Fuzzware will figure out how MMIO values are used, configure models, and involve the fuzzer to provide hardware behavior which is not fully covered by MMIO models.
-
-Our [paper](https://www.usenix.org/system/files/sec22summer_scharnowski.pdf) from USENIX Security '22 explains the system in more detail. For a demo, check out our [screen cast](https://asciinema.org/a/490160). 
-
-The [fuzzware-experiments repository](https://github.com/fuzzware-fuzzer/fuzzware-experiments) contains the data sets, scripts, and documentation required to replicate our experiments.
+The [Ext-fuzzware-experiments repository](https://github.com/SaerTrial/Ext-fuzzware-experiment) contains the data sets, scripts, and documentation required to replicate our experiments.
 
 ## Quick Start
 First install:
@@ -20,39 +16,11 @@ Then run:
 ./run_docker.sh examples fuzzware pipeline --skip-afl-cpufreq pw-recovery/ARCH_PRO
 ```
 
-## Repo Organization and Documents
-Directories within this repository. For the experiments in our paper, as well as submodules.
-| Directory | Description |
-| --------- | ----------- |
-| [docs](docs) | Documentation files (config optimizations, cov analysis, crash analysis). |
-| [examples](examples) | Target firmware samples to test Fuzzware on. |
-| [fuzzware-emulator](https://github.com/fuzzware-fuzzer/fuzzware-emulator) | The emulator which performs runs of a firmware for a given input file. |
-| [modeling](modeling) | MMIO modeling (based on angr). |
-| [fuzzware-pipeline](https://github.com/fuzzware-fuzzer/fuzzware-pipeline) | Orchestration between MMIO modeling and emulator. |
-| [scripts](scripts) | Some helper scripts (e.g., gather basic blocks in IDB). |
-| [fuzzware-experiments](https://github.com/fuzzware-fuzzer/fuzzware-experiments) | Pre-built images/config, crashing POCs/analyses, build scripts to re-run our experiments. |
-
-To not let this document explode, we provide specific documentation in different places:
-
-1. Firmware targets, build scripts, example crash analyses: [the fuzzware-experiments repo](https://github.com/fuzzware-fuzzer/fuzzware-experiments)
-2. Fuzzware utilities documentation: `$ fuzzware -h`, and `$ fuzzware <util_name> -h`
-3. Firmware configuration file format details: [fuzzware-emulator/README_config.yml](https://github.com/fuzzware-fuzzer/fuzzware-emulator/blob/main/README_config.yml)
-4. Fuzzware project result directory structure: [fuzzware-pipeline/README.md](https://github.com/fuzzware-fuzzer/fuzzware-pipeline/blob/main/README.md)
-
-## The Idea
-At its core, Fuzzware works by plugging an instruction set emulator (currently: Unicorn Engine) to
-a fuzzer (currently: afl / AFL++) and having the fuzzer supply inputs for all hardware accesses. Whenever hardware in Memory-Mapped (MMIO) registers is accessed, the value is served from fuzzing input.
-
-"The fuzzer has no idea about how the hardware it is emulating is supposed to behave, so how can anything useful come out of this?" You might ask. There are different components to this:
-1. Coverage feedback: While the fuzzer does not know anything about the hardware, it can try different inputs and see how the firmware code reacts to it - whatever inputs trigger meaningful firmware code coverage are likely to represent expected hardware behavior. The fuzzer can chase this code coverage by trial-and-error.
-2. MMIO Access Modeling: Firmware typically performs a variety of hardware (MMIO) accesses. Many of those accesses are for status checking and housekeeping purposes. It turns out that a lot of those accesses are not meaningful to the overall firmware logic. This means a majority of **MMIO accesses can either be eliminated or condensed automatically**. Any MMIO access modeled this way takes away the need for the fuzzer to guess about hardware behavior.
-3. Custom Configurations: The user can supply different pieces of optional configuration to modify firmware behavior (skip or replace logic with custom handlers, define when and which interrupts to trigger) and to guide the emulation to sane firmware states (by describing mandatory checkpoints and error functions to avoid during the boot process). This can focus fuzzing on interesting functionality in case we have a human in the loop.
-
 ## Fuzzware Components
 Fuzzware is comprised of different components:
 
-1. [Pipeline Component (fuzzware-pipeline)](https://github.com/fuzzware-fuzzer/fuzzware-pipeline): Integrated fuzzing and modeling. The pipeline component represents the glue between emulation and modeling. As the fuzzer/emulator finds new MMIO accesses during runs, the corresponding firmware states need to be forwarded to modeling. Similarly, the updated MMIO configurations produced during modeling need to be made available to the emulator. The Pipeline automates this cycle: It lets the emulator run, and pushes jobs for modeling newly observed MMIO accesses. It subsequently updates emulation with new models. The pipeline also implements additional features such as identifying successfully booted firmware states which are then automatically used for further fuzzing.
-2. [Emulation Component (fuzzware-emulator)](https://github.com/fuzzware-fuzzer/fuzzware-emulator): Standalone single-input emulation runs. This component allows emulating a firmware image with a provided configuration for a particular input file. It handles the re-routing of fuzzing inputs to answer MMIO accesses as well as triggering interrupts and creating traces as well as state files for further processing. It also provides integration with a fuzzer (an AFL forkserver) for repeated emulation runs with different inputs.
+1. [Pipeline Component (fuzzware-pipeline)](pipeline): Integrated fuzzing and modeling. The pipeline component represents the glue between emulation and modeling. As the fuzzer/emulator finds new MMIO accesses during runs, the corresponding firmware states need to be forwarded to modeling. Similarly, the updated MMIO configurations produced during modeling need to be made available to the emulator. The Pipeline automates this cycle: It lets the emulator run, and pushes jobs for modeling newly observed MMIO accesses. It subsequently updates emulation with new models. The pipeline also implements additional features such as identifying successfully booted firmware states which are then automatically used for further fuzzing.
+2. [Emulation Component (fuzzware-emulator)](emulator): Standalone single-input emulation runs. This component allows emulating a firmware image with a provided configuration for a particular input file. It handles the re-routing of fuzzing inputs to answer MMIO accesses as well as triggering interrupts and creating traces as well as state files for further processing. It also provides integration with a fuzzer (an AFL forkserver) for repeated emulation runs with different inputs.
 3. [Modeling Component (/modeling)](modeling): Standalone modeling. This component generates MMIO access models for states exported by the emulation component. It does so by performing symbolic execution and analyzing what is happening to the accessed MMIO values. It outputs configuration snippets which can be fed back to the emulation component for improved emulation.
 
 For more information on the different components, please refer to the corresponding component subdirectories and READMEs.
@@ -195,8 +163,9 @@ In case you found bugs using Fuzzware, feel free to let us know! :-)
 As a researcher, time for coding is finite. This is why there are still TODOs which could make the Fuzzware implementation better (even if we had infinite time, there would always be more things to improve, of course). If you are interested, here are some sample projects to work on for hacking on Fuzzware:
 
 1. **Upgrade angr version**: To make use of the newest features of angr and support Python in version >=3.10, we could upgrade the modeling code to use an up-to-date angr (while of course making sure that the angr APIs and its behavior have not changed in an unforseen way).
-2. **Architecture Independence**: Currently, the Fuzzware code is rather tighly coupled with ARM / Cortex-M. We started uncoupling the modeling logic from the architecture (see [arch_specific](modeling/fuzzware_modeling/arch_specific)), but there is more work to be done to make Fuzzware applicable to other CPU architectures (e.g., ARM Cortex-R) or instruction set architectures (e.g., MIPS).
+2. **Architecture Independence**: Currently, the Fuzzware only support Cortex-M and PIC32MZ/X processors. Once the refactoring is fully done, making Fuzzware applicable to other CPU architectures (e.g., ARM Cortex-R) will consume less engineering effort.
 3. **CompCov**: Currently, Fuzzware does not make use of some AFL++ features such as compcov. This would be an opportunity to integrate some more such features into unicorn.
 4. **Crash Analysis Tooling**: Currently, analyzing crashes is a largely manual task. However, Fuzzware contains code to generate and parse detailed traces, and to inject custom hooks during firmware emulation. Some more tooling based on traces and custom hooks could be created to easen the crash analysis process.
 5. **Input Patching Tooling**: Currently, manually modifying existing inputs is a manual task and involves manually interpreting MMIO trace files to match file contents to MMIO accesses. With proper tooling, modifying inputs could be made much more convenient, making it practical to manually create seed inputs which trigger important coverage, or more easily craft a proof-of-concept exploit from a given crashing input. These could then be used as a starting point for the fuzzer.
-6. **Refactoring**: When looking through the code you will certainly find grown pieces of code which could make use of cleanup and larger refactoring. To make your search easy, one such place is [naming_conventions.py](https://github.com/fuzzware-fuzzer/fuzzware-pipeline/blob/main/fuzzware_pipeline/naming_conventions.py). Prior to publication, we did some cleanup, but also dedicated extra time to adding more tooling functionality in the hopes that it makes Fuzzware more easy for people to use and get into, without having to use some of the bash ugliness that you get away with as the author of a tool. As coding time is limited for us, we appreciate any community efforts in making the code better.
+6. **Refactoring(Almost done)**: When looking through the code you will certainly find grown pieces of code which could make use of cleanup and larger refactoring. To make your search easy, one such place is [naming_conventions.py](https://github.com/fuzzware-fuzzer/fuzzware-pipeline/blob/main/fuzzware_pipeline/naming_conventions.py). Prior to publication, we did some cleanup, but also dedicated extra time to adding more tooling functionality in the hopes that it makes Fuzzware more easy for people to use and get into, without having to use some of the bash ugliness that you get away with as the author of a tool. As coding time is limited for us, we appreciate any community efforts in making the code better.
+7. **Upgrade Unicorn version (Priority)**: To overcome limitations inherited from our base emulator, we need to migrate the current Unicorn to the latest version to make use of patches made in community. 
