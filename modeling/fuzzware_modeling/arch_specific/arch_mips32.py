@@ -1,9 +1,15 @@
 from .arch import *
 from typing import Tuple
-from ..angr_utils import all_states
+from ..angr_utils import all_states, contains_var
+from capstone import *
+from capstone.mips import *
+
+load_set = list(range(MIPS_INS_LB, MIPS_INS_LI+1))
+
 
 REG_NAME_PC = 'pc'
 REG_NAME_SP = 'sp'
+REG_NAME_FP = 'fp'
 
 OPCODE_WFI = 0x42000020
 OPCODE_BYTE_BREAK = 0x0d
@@ -32,6 +38,43 @@ class MIPS32Quirks():
     def model_arch_specific(self, project, initial_state, base_snapshot, simulation) -> Tuple[str, dict]:
         return None, None
 
+    def reg_in_instruction(self, insn, reg_name) -> bool:
+        if insn.id == 0:
+            return False
+        
+        # we do not care about other instructions
+        if insn.id not in load_set:
+            return False
+    
+        if len(insn.operands) > 0:
+            c = -1
+            for i in insn.operands:
+                c += 1
+                if i.type == MIPS_OP_REG:
+                    if insn.reg_name(i.reg) == reg_name:
+                        return True
+                break
+
+        return False
+
+    @classmethod
+    def is_reg_as_ret_value(self, reg_name, state, basic_blocks):
+        # this method checks if the given reg appears in destination for load instructions
+        if len(basic_blocks) == 1:
+            for insn in state.block(state.history.bbl_addrs[-1]).capstone.insns:
+                if self.reg_in_instruction(insn, reg_name):
+                    return True
+        else:
+            for bb in basic_blocks:
+                for insn in state.block(bb).capstone.insns:  
+                    if self.reg_in_instruction(insn, reg_name):
+                        return True
+        return False
+
+    @classmethod
+    def mem_write_contain_stack_regs(self, mem_write_address, regvars_by_name)->bool:
+        return contains_var(mem_write_address, regvars_by_name[REG_NAME_SP]) or contains_var(mem_write_address, regvars_by_name[REG_NAME_FP])
+
     @classmethod
     def try_handling_decode_error(self, simulation, stash_name, addr):
         sample_state = simulation.stashes[stash_name][0]
@@ -52,12 +95,12 @@ class ArchSpecificsMIPS32(ArchSpecifics):
         self.state_snapshot_reg_list = ['zero', 'at', 'v0', 'v1', 'a0', 'a1', 'a2',
                             'a3', 't0', 't1', 't2', 't3', 't4', 't5', 't6', 't7',
                             's0', 's1', 's2', 's3', 's4', 's5', 's6', 's7', 't8',
-                            't9', 'k0', 'k1', 'gp', 'sp', 'ra', 'pc']
+                            't9', 'k0', 'k1', 'gp', 'sp', 'ra', 'pc','fp']
         
         self.scope_reg_names = ('at', 'v0', 'v1', 'a0', 'a1', 'a2',
                             'a3', 't0', 't1', 't2', 't3', 't4', 't5', 't6', 't7',
                             's0', 's1', 's2', 's3', 's4', 's5', 's6', 's7', 't8',
-                            't9', 'k0', 'k1', 'gp', 'sp', 'ra', 'pc')
+                            't9', 'k0', 'k1', 'gp', 'sp', 'ra', 'pc', 'fp')
         
         self.regular_register_names = ('zero', 'at', 'v0', 'v1', 'a0', 'a1', 'a2',
                             'a3', 't0', 't1', 't2', 't3', 't4', 't5', 't6', 't7',
@@ -67,6 +110,8 @@ class ArchSpecificsMIPS32(ArchSpecifics):
         self.newly_added_constraints_reg_names = self.scope_reg_names
 
         self.scratch_reg_names = ('a0', 'a1', 'a2', 'a3', 't4', 't5', 't6', 't7', 't8', 't9')
+
+        self.return_registers = ('v0', 'v1')
 
         if endness == "LE":
             self._arch = archinfo.ArchMIPS32(endness='Iend_LE')

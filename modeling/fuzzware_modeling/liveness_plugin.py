@@ -128,11 +128,34 @@ class LivenessPlugin(angr.SimStatePlugin):
         # For top level function return, also remove scratch registers from scope
         if not self.stackframes:
             l.warning("[{:x}] Returned from top level function".format(state.addr))
+            
+
+            # experimental feature: enhance modeling for PIC32MZ/X processors
+            """
+            # remove all remaining references to return registers if they are not used to return values.            
+            if "last_func_call" in state.globals:
+                # last to second bb is a part of a function
+                if state.history.bbl_addrs.hardcopy[-1] == state.globals["last_func_call"]:
+                    last_two_bbs = state.history.bbl_addrs.hardcopy[-1:]
+                else:
+                    last_two_bbs = state.history.bbl_addrs.hardcopy[-2:]
+            else:
+                last_two_bbs = state.history.bbl_addrs.hardcopy[-2:]
+
+            for reg_name in self.base_snapshot.specific_arch.return_registers:
+                for varname in getattr(self.state.regs, reg_name).variables:
+                    if varname in self.alive_varname_counts:
+                        if not self.base_snapshot.specific_arch.quirks.is_reg_as_ret_value(reg_name, state, last_two_bbs):
+                            l.debug("Return register %r is not a return value; decreasing count for variable: %r", reg_name, varname)
+                            self._remove_ref(varname)
+            """
+
             self.returned = True
             self._remove_scratch_reg_refs()
             if self.isr_start <= state.addr <= self.isr_end:
                 l.critical("returning from ISR")
-             
+
+        state.globals["last_func_call"] = state.addr
 
     def on_before_reg_write(self, write_expr, reg_write_offset, write_len):
         """

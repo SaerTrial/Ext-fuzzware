@@ -108,6 +108,7 @@ gp=0x{:x}
 sp=0x{:x}
 ra=0x{:x}
 pc=0x{:x}
+fp=0x{:x}
 """
 
 
@@ -142,7 +143,8 @@ snapshot_reg_cons = [UC_MIPS_REG_ZERO,
     UC_MIPS_REG_GP,
     UC_MIPS_REG_SP,
     UC_MIPS_REG_RA,
-    UC_MIPS_REG_PC]
+    UC_MIPS_REG_PC,
+    UC_MIPS_REG_FP]
 
 
 class ConstMIPS32(Const):

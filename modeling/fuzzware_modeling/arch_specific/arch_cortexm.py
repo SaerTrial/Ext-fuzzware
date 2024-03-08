@@ -1,11 +1,17 @@
 from .arch import *
 from typing import Tuple
-from ..angr_utils import all_states
+from ..angr_utils import all_states, contains_var
+from capstone import *
+from capstone.arm import *
+
+load_set = list(range(ARM_INS_LDR, ARM_INS_LDRT+1))
 
 ARMG_CC_OP_COPY = 0
 
 REG_NAME_PC = 'pc'
 REG_NAME_SP = 'sp'
+
+
 
 CORTEXM_MMIO_START = 0x40000000
 CORTEXM_MMIO_END   = 0x60000000
@@ -196,6 +202,46 @@ class ArmQuirks():
 
         return None, None
 
+    def reg_in_instruction(self, insn, reg_name) -> bool:
+        if insn.id == 0:
+            return False
+        
+        # we do not care about other instructions
+        if insn.id not in load_set:
+            return False
+    
+        if len(insn.operands) > 0:
+            c = -1
+            for i in insn.operands:
+                c += 1
+                if i.type == ARM_OP_REG:
+                    if insn.reg_name(i.reg) == reg_name:
+                        return True
+                break
+
+        return False
+
+    @classmethod
+    def is_reg_as_ret_value(self, reg_name, state, basic_blocks):
+        # this method checks if the given reg appears in destination for load instructions
+        if len(basic_blocks) == 1:
+            for insn in state.block(state.history.bbl_addrs[-1]).capstone.insns:
+                if self.reg_in_instruction(insn, reg_name):
+                    return True
+        else:
+            for bb in basic_blocks:
+                for insn in state.block(bb).capstone.insns:  
+                    if self.reg_in_instruction(insn, reg_name):
+                        return True
+        return False
+
+
+
+    @classmethod
+    def mem_write_contain_stack_regs(self, mem_write_address, regvars_by_name)->bool:
+        return contains_var(mem_write_address, regvars_by_name[REG_NAME_SP])
+
+
     @classmethod
     def try_handling_decode_error(self, simulation, stash_name, addr):
         sample_state = simulation.stashes[stash_name][0]
@@ -226,6 +272,8 @@ class ArchSpecificsARMCortexM(ArchSpecifics):
         self.newly_added_constraints_reg_names = ('r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r10', 'r11', 'r12', 'lr')
 
         self.scratch_reg_names = ('r1', 'r2', 'r3', 'lr')
+
+        self.return_registers = ('r0')
 
         if endness == "LE":
             self._arch = archinfo.ArchARMCortexM(endness='Iend_LE')

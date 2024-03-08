@@ -93,9 +93,8 @@ def inspect_bp_trace_liveness_mem(state):
     elif state.globals['path_constrained']:
         state.globals['meaningful_actions_while_constrained'] = True
     
-
-    REG_NAME_SP = state.liveness.base_snapshot.specific_arch.REG_SP
-    if state.inspect.mem_write_address.symbolic and contains_var(state.inspect.mem_write_address, state.liveness.base_snapshot.regvars_by_name[REG_NAME_SP]):
+    if state.inspect.mem_write_address.symbolic and state.liveness.base_snapshot.specific_arch.quirks.mem_write_contain_stack_regs(state.inspect.mem_write_address, state.liveness.base_snapshot.regvars_by_name):
+    #if state.inspect.mem_write_address.symbolic and contains_var(state.inspect.mem_write_address, state.liveness.base_snapshot.regvars_by_name[REG_NAME_SP]):
         # Write to local variable
         l.debug("[{:x}] Write to local variable!".format(state.addr))
         l.debug("Target: {}, val: {}".format(state.inspect.mem_write_address, state.inspect.mem_write_expr))
