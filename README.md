@@ -156,6 +156,9 @@ month = aug,
 }
 ```
 
+The thesis paper related to extension: TODO
+
+
 # Found Bugs? Let us know!
 In case you found bugs using Fuzzware, feel free to let us know! :-)
 
