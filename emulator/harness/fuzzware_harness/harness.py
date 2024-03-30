@@ -311,8 +311,8 @@ def configure_unicorn(args):
     else:
         uc.gdb = None
     
-    def hook_fn(uc, address, size, user_data):
-        print(">>> Tracing instruction at 0x%x, instruction size = %u" % (address, size))
+    #def hook_fn(uc, address, size, user_data):
+    #    print(">>> Tracing instruction at 0x%x, instruction size = %u" % (address, size))
 
     # uc.hook_add(UC_HOOK_CODE, hook_fn, None)
 
