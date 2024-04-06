@@ -238,7 +238,7 @@ class UserHooksARMCortexM(UserHooks):
         output = b''
 
         # just allow a limited number of arguments
-        args = [self._uc.regs.r1, self._uc.regs.r2, self._uc.regs.r3]
+        args = [self._uc.regs.r1, self._uc.regs.r2, self._uc.regs.r3, self._uc.regs.r4]
         args.reverse()
 
         prev_ind, cursor = 0, 0
@@ -253,7 +253,7 @@ class UserHooksARMCortexM(UserHooks):
 
             num_str = b""
             while msg[cursor] in digits.encode():
-                num_str += msg[cursor]
+                num_str += str(msg[cursor]).encode()
                 cursor += 1
             while msg[cursor] == ord('l'):
                 cursor += 1
